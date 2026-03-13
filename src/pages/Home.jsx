@@ -27,8 +27,14 @@ const SPOTLIGHTS = [
 
 const TIER_ORDER = { S: 0, A: 1, B: 2, C: 3, D: 4 };
 
-function buildItems(albums, showSpotlights) {
-  const items = albums.map((a, i) => ({ ...a, type: "album", seq: i + 1 }));
+function buildItems(albums, showSpotlights, expandedId) {
+  const items = albums.map((a, i) => ({
+    ...a,
+    type: a.id === expandedId ? "expanded" : "album",
+    seq: i + 1,
+  }));
+  // Keep spotlights in the layout at all times (removing them shifts grid positions left,
+  // which causes the FLIP animation to incorrectly animate cards "leftward")
   if (showSpotlights) {
     if (items.length > 7)  items.splice(7,  0, SPOTLIGHTS[0]);
     if (items.length > 48) items.splice(48, 0, SPOTLIGHTS[1]);
@@ -53,29 +59,46 @@ function computeSorted(g, t, s, vo, dir) {
   return list;
 }
 
-// ─── Column-reveal animation (shared by initial load + filter change) ────────
+// ─── Column-reveal animation (initial load only) ─────────────────────────────
 function animateColumnReveal(gridEl) {
-  const cells = [...gridEl.querySelectorAll(".gcell")];
-  cells.forEach((el) => { el.style.opacity = "0"; });
+  const allCells      = [...gridEl.querySelectorAll(".gcell")];
+  const spotlightCells = allCells.filter((el) => el.classList.contains("col-span-2"));
+  const regularCells   = allCells.filter((el) => !el.classList.contains("col-span-2"));
 
+  // Hide everything before any frame paints
+  allCells.forEach((el) => { el.style.opacity = "0"; });
+
+  // Group regular album cells by their column (left offset)
   const colMap = new Map();
-  cells.forEach((el) => {
+  regularCells.forEach((el) => {
     const left = Math.round(el.getBoundingClientRect().left);
     if (!colMap.has(left)) colMap.set(left, []);
     colMap.get(left).push(el);
   });
 
-  [...colMap.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .forEach(([, colCells], colIdx) => {
-      animate(colCells, {
-        opacity:    [0, 1],
-        translateX: [-16, 0],
-        duration:   400,
-        ease:       "outQuart",
-        delay:      colIdx * 35,
-      });
+  const sortedCols = [...colMap.entries()].sort((a, b) => a[0] - b[0]);
+
+  sortedCols.forEach(([, colCells], colIdx) => {
+    animate(colCells, {
+      opacity:    [0, 1],
+      translateX: [-16, 0],
+      duration:   400,
+      ease:       "outQuart",
+      delay:      colIdx * 35,
     });
+  });
+
+  // Spotlight 2×2 cards appear after all album columns finish, one after the other
+  const afterAlbums = (sortedCols.length - 1) * 35 + 400 + 100;
+  spotlightCells.forEach((el, i) => {
+    animate(el, {
+      opacity:    [0, 1],
+      translateX: [-16, 0],
+      duration:   420,
+      ease:       "outQuart",
+      delay:      afterAlbums + i * 180,
+    });
+  });
 }
 
 // ─── Clock ────────────────────────────────────────────────────────────────────
@@ -90,30 +113,34 @@ function useTime() {
   return time;
 }
 
-// ─── Album cell ───────────────────────────────────────────────────────────────
-function AlbumCell({ album }) {
-  const cardRef = useRef(null);
-
+// ─── Shared tilt handlers ─────────────────────────────────────────────────────
+function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
+  const ref = useRef(null);
   function onMouseMove(e) {
-    const el = cardRef.current;
+    const el = ref.current;
     if (!el) return;
     const { left, top, width, height } = el.getBoundingClientRect();
-    const x = (e.clientX - left) / width;
-    const y = (e.clientY - top) / height;
-    const rx = (0.5 - y) * 14;
-    const ry = (x - 0.5) * 18;
+    const x  = (e.clientX - left) / width;
+    const y  = (e.clientY - top)  / height;
+    const rX = (0.5 - y) * rx;
+    const rY = (x - 0.5) * ry;
     el.style.transition = "background-color 150ms";
-    el.style.transform = `perspective(500px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.09)`;
-    el.style.zIndex = "10";
+    el.style.transform  = `perspective(${perspective}px) rotateX(${rX}deg) rotateY(${rY}deg) scale(${sc})`;
+    el.style.zIndex     = "10";
   }
-
   function onMouseLeave() {
-    const el = cardRef.current;
+    const el = ref.current;
     if (!el) return;
     el.style.transition = "transform 500ms cubic-bezier(0.23,1,0.32,1), background-color 150ms";
-    el.style.transform = "";
-    el.style.zIndex = "";
+    el.style.transform  = "";
+    el.style.zIndex     = "";
   }
+  return { ref, onMouseMove, onMouseLeave };
+}
+
+// ─── Album cell ───────────────────────────────────────────────────────────────
+function AlbumCell({ album, onExpand }) {
+  const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
 
   return (
     <div
@@ -121,6 +148,7 @@ function AlbumCell({ album }) {
       data-album-id={album.id}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
+      onClick={() => onExpand(album.id)}
       className="gcell group bg-[#111111] p-4 flex flex-col justify-between cursor-pointer
                   hover:bg-[#181818]"
       style={{ willChange: "transform", position: "relative" }}
@@ -141,6 +169,51 @@ function AlbumCell({ album }) {
       <div className="flex items-end justify-between mt-2">
         <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">{album.year}</span>
         {album.vinyl && <VinylIcon className="text-[#383838] transition-colors duration-250 group-hover:text-white" />}
+      </div>
+    </div>
+  );
+}
+
+// ─── Expanded album cell (2×2) ────────────────────────────────────────────────
+function AlbumExpandedCell({ album, onCollapse }) {
+  const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(10, 14, 1.03, 700);
+
+  return (
+    <div
+      ref={cardRef}
+      data-album-id={album.id}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      onClick={onCollapse}
+      className="gcell col-span-2 row-span-2 bg-[#161616] p-6 flex flex-col justify-between
+                  cursor-pointer hover:bg-[#1c1c1c] relative overflow-hidden"
+      style={{ willChange: "transform" }}
+    >
+      {/* subtle top-left glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#ffffff04] to-transparent pointer-events-none" />
+
+      <div className="relative z-10 flex items-start justify-between">
+        <span className="font-mono text-[10px] text-white">{String(album.seq).padStart(2, "0")}</span>
+        <span className="font-mono text-[10px] text-white">{album.tier}</span>
+      </div>
+
+      <div className="relative z-10 flex-1 flex flex-col justify-center mt-4">
+        <p className="text-[22px] font-bold text-white leading-tight tracking-tight">
+          {album.crowned && <span className="mr-2 text-white">♛</span>}
+          {album.title}
+        </p>
+        <p className="text-[13px] text-white/60 mt-1.5">{album.artist}</p>
+        <p className="font-mono text-[10px] text-white/30 mt-3 tracking-widest uppercase">
+          {album.genre}
+        </p>
+      </div>
+
+      <div className="relative z-10 flex items-center justify-between mt-4">
+        <div className="flex items-center gap-2">
+          {album.vinyl && <VinylIcon className="text-white/50" />}
+          <span className="font-mono text-[10px] text-white/50">{album.year}</span>
+        </div>
+        <span className="font-mono text-[9px] text-white/20 tracking-widest">CLICK TO CLOSE</span>
       </div>
     </div>
   );
@@ -177,6 +250,7 @@ function SpotlightCell({ item, videoRef }) {
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
+      data-spotlight-id={item.id}
       className="gcell col-span-2 row-span-2 bg-[#0f0f0f] p-6 flex flex-col justify-end
                   relative overflow-hidden cursor-default"
       style={{ willChange: "transform" }}
@@ -319,12 +393,13 @@ const SORT_OPTIONS  = [
 const TIER_TABS = ["All", "S", "A", "B", "C", "D"];
 
 export default function Home() {
-  const [genre,     setGenre]     = useState("All");
-  const [tier,      setTier]      = useState("All");
-  const [sort,      setSort]      = useState("Rating");
-  const [sortDir,   setSortDir]   = useState("desc");
-  const [vinylOnly, setVinylOnly] = useState(false);
-  const [progress,  setProgress]  = useState(0);
+  const [genre,      setGenre]      = useState("All");
+  const [tier,       setTier]       = useState("All");
+  const [sort,       setSort]       = useState("Rating");
+  const [sortDir,    setSortDir]    = useState("desc");
+  const [vinylOnly,  setVinylOnly]  = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [progress,   setProgress]   = useState(0);
 
   const gridRef        = useRef(null);
   const mainRef        = useRef(null);
@@ -351,15 +426,31 @@ export default function Home() {
   const sorted = useMemo(() => computeSorted(genre, tier, sort, vinylOnly, sortDir), [genre, tier, sort, vinylOnly, sortDir]);
 
   const isDefault = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "desc" && !vinylOnly;
-  const items     = useMemo(() => buildItems(sorted, isDefault), [sorted, isDefault]);
+  const items     = useMemo(() => buildItems(sorted, isDefault, expandedId), [sorted, isDefault, expandedId]);
 
   // ── Position snapshot helper ──────────────────────────────────────────────
   function capturePositions() {
     const pos = {};
-    gridRef.current?.querySelectorAll("[data-album-id]").forEach((el) => {
-      pos[Number(el.dataset.albumId)] = el.getBoundingClientRect();
+    gridRef.current?.querySelectorAll("[data-album-id], [data-spotlight-id]").forEach((el) => {
+      const key = el.dataset.albumId
+        ? Number(el.dataset.albumId)
+        : el.dataset.spotlightId;
+      pos[key] = el.getBoundingClientRect();
     });
     prevPosRef.current = pos;
+  }
+
+  // ── Expand / collapse ─────────────────────────────────────────────────────
+  function handleExpand(albumId) {
+    animModeRef.current = "expand";
+    capturePositions();
+    setExpandedId(albumId);
+  }
+
+  function handleCollapse() {
+    animModeRef.current = "expand";
+    capturePositions();
+    setExpandedId(null);
   }
 
   // ── Sort change: capture → FLIP ───────────────────────────────────────────
@@ -507,25 +598,44 @@ export default function Home() {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       animateColumnReveal(gridRef.current);
-    } else if (mode === "sort") {
-      // FLIP: each card animates from its old position to its new one
-      const prev  = prevPosRef.current;
-      const cells = [...gridRef.current.querySelectorAll("[data-album-id]")];
+    } else if (mode === "sort" || mode === "expand") {
+      const prev    = prevPosRef.current;
+      const cells   = [...gridRef.current.querySelectorAll("[data-album-id], [data-spotlight-id]")];
+      const DUR     = mode === "expand" ? 420 : undefined;
       cells.forEach((el) => {
-        const id   = Number(el.dataset.albumId);
-        const old  = prev[id];
+        const id  = el.dataset.albumId ? Number(el.dataset.albumId) : el.dataset.spotlightId;
+        const old = prev[id];
         if (!old) return;
-        const cur  = el.getBoundingClientRect();
-        const dx   = old.left - cur.left;
-        const dy   = old.top  - cur.top;
-        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
-        animate(el, {
-          translateX: [dx, 0],
-          translateY: [dy, 0],
-          duration:   380 + Math.random() * 180,
-          ease:       "outQuart",
-          delay:      Math.random() * 80,
-        });
+        const cur = el.getBoundingClientRect();
+        const dx  = old.left   - cur.left;
+        const dy  = old.top    - cur.top;
+        const sx  = old.width  / cur.width;
+        const sy  = old.height / cur.height;
+        const isScaling = Math.abs(sx - 1) > 0.02 || Math.abs(sy - 1) > 0.02;
+        const isMoving  = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
+        if (!isScaling && !isMoving) return;
+
+        if (isScaling) {
+          // The expanding/collapsing card — FLIP with scale from top-left origin
+          el.style.transformOrigin = "top left";
+          animate(el, {
+            translateX: [dx, 0],
+            translateY: [dy, 0],
+            scaleX:     [sx, 1],
+            scaleY:     [sy, 1],
+            duration:   DUR ?? 420,
+            ease:       "outQuart",
+          });
+          setTimeout(() => { el.style.transformOrigin = ""; }, (DUR ?? 420) + 20);
+        } else {
+          animate(el, {
+            translateX: [dx, 0],
+            translateY: [dy, 0],
+            duration:   DUR ?? (380 + Math.random() * 180),
+            ease:       "outQuart",
+            delay:      mode === "expand" ? Math.random() * 40 : Math.random() * 80,
+          });
+        }
       });
     } else if (mode === "filter") {
       const cells = gridRef.current.querySelectorAll(".gcell");
@@ -540,8 +650,11 @@ export default function Home() {
 
     // Always snapshot positions after render for next FLIP
     const pos = {};
-    gridRef.current.querySelectorAll("[data-album-id]").forEach((el) => {
-      pos[Number(el.dataset.albumId)] = el.getBoundingClientRect();
+    gridRef.current.querySelectorAll("[data-album-id], [data-spotlight-id]").forEach((el) => {
+      const key = el.dataset.albumId
+        ? Number(el.dataset.albumId)
+        : el.dataset.spotlightId;
+      pos[key] = el.getBoundingClientRect();
     });
     prevPosRef.current = pos;
   }, [items]);
@@ -590,8 +703,10 @@ export default function Home() {
             >
               {items.map((item) =>
                 item.type === "spotlight"
-                  ? <SpotlightCell key={item.id} item={item} videoRef={item.id === "s2" ? videoRef : null} />
-                  : <AlbumCell     key={item.id} album={item} />
+                  ? <SpotlightCell      key={item.id}  item={item} videoRef={item.id === "s2" ? videoRef : null} />
+                  : item.type === "expanded"
+                  ? <AlbumExpandedCell  key={item.id}  album={item} onCollapse={handleCollapse} />
+                  : <AlbumCell         key={item.id}  album={item} onExpand={handleExpand} />
               )}
             </div>
           </div>
@@ -628,7 +743,7 @@ export default function Home() {
             {sorted.length} {sorted.length === 1 ? "album" : "albums"}
           </span>
           <span className="text-[#222]">·</span>
-          <FilterTab label="Vinyl" active={vinylOnly} onClick={changeVinyl} />
+          <FilterTab label="Own Vinyl" active={vinylOnly} onClick={changeVinyl} />
         </div>
 
         {/* Center: genre + sort dropdowns */}
