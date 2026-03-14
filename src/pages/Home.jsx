@@ -7,6 +7,15 @@ import { cn } from "@/lib/utils";
 import VinylIcon from "@/components/ui/VinylIcon";
 import albumsBgVideo from "@/assets/65390-514139029_tiny.mp4";
 
+// ─── Genre breakdown for COLLECTION card ─────────────────────────────────────
+const GENRE_BREAKDOWN = (() => {
+  const counts = {};
+  ALBUMS.forEach((a) => { counts[a.genre] = (counts[a.genre] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const othersCount = sorted.slice(3).reduce((s, [, c]) => s + c, 0);
+  return [...sorted.slice(0, 3), ["Others", othersCount]];
+})();
+
 // ─── Spotlight cards ──────────────────────────────────────────────────────────
 const SPOTLIGHTS = [
   {
@@ -43,20 +52,27 @@ function buildItems(albums, showSpotlights, expandedId) {
 }
 
 // Standalone sort/filter computation (used for both rendering and exit-preview)
-function computeSorted(g, t, s, vo, dir) {
-  let list = ALBUMS.filter(
-    (a) => (g === "All" || a.genre === g) && (t === "All" || a.tier === t)
-  );
-  if (vo) list = list.filter((a) => a.vinyl);
+function isMatch(a, g, t, vo, no) {
+  return (g === "All" || a.genre === g) && (t === "All" || a.tier === t) && (!vo || a.vinyl) && (!no || a.latest);
+}
+
+function computeSorted(g, t, s, vo, dir, no) {
+  const hasFilter = g !== "All" || t !== "All" || vo || no;
   const asc = dir === "asc";
-  switch (s) {
-    case "Rating": list.sort((a, b) => asc ? TIER_ORDER[b.tier] - TIER_ORDER[a.tier] : TIER_ORDER[a.tier] - TIER_ORDER[b.tier]); break;
-    case "Album":  list.sort((a, b) => asc ? a.title.localeCompare(b.title)   : b.title.localeCompare(a.title));                  break;
-    case "Artist": list.sort((a, b) => asc ? a.artist.localeCompare(b.artist) : b.artist.localeCompare(a.artist));                break;
-    case "Genre":  list.sort((a, b) => asc ? a.genre.localeCompare(b.genre)   : b.genre.localeCompare(a.genre));                  break;
-    case "Year":   list.sort((a, b) => asc ? a.year - b.year                  : b.year - a.year);                                 break;
-  }
-  return list;
+  const cmp = {
+    Rating: (a, b) => asc ? TIER_ORDER[b.tier] - TIER_ORDER[a.tier] : TIER_ORDER[a.tier] - TIER_ORDER[b.tier],
+    Album:  (a, b) => asc ? a.title.localeCompare(b.title)   : b.title.localeCompare(a.title),
+    Artist: (a, b) => asc ? a.artist.localeCompare(b.artist) : b.artist.localeCompare(a.artist),
+    Genre:  (a, b) => asc ? a.genre.localeCompare(b.genre)   : b.genre.localeCompare(a.genre),
+    Year:   (a, b) => asc ? a.year - b.year                  : b.year - a.year,
+  }[s] || ((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
+
+  if (!hasFilter) return [...ALBUMS].sort(cmp);
+
+  // Keep all albums — matched bubble to front, each group sorted independently
+  const matched   = ALBUMS.filter((a) =>  isMatch(a, g, t, vo, no)).sort(cmp);
+  const unmatched = ALBUMS.filter((a) => !isMatch(a, g, t, vo, no)).sort(cmp);
+  return [...matched, ...unmatched];
 }
 
 // ─── Column-reveal animation (initial load only) ─────────────────────────────
@@ -101,17 +117,6 @@ function animateColumnReveal(gridEl) {
   });
 }
 
-// ─── Clock ────────────────────────────────────────────────────────────────────
-function useTime() {
-  const fmt = () =>
-    new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
-  const [time, setTime] = useState(fmt);
-  useEffect(() => {
-    const id = setInterval(() => setTime(fmt()), 15_000);
-    return () => clearInterval(id);
-  }, []);
-  return time;
-}
 
 // ─── Shared tilt handlers ─────────────────────────────────────────────────────
 function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
@@ -139,8 +144,11 @@ function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
 }
 
 // ─── Album cell ───────────────────────────────────────────────────────────────
-function AlbumCell({ album, onExpand }) {
+function AlbumCell({ album, onExpand, matched, hasFilter }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
+
+  const dimmed    = hasFilter && !matched;
+  const glowing   = hasFilter &&  matched;
 
   return (
     <div
@@ -151,12 +159,25 @@ function AlbumCell({ album, onExpand }) {
       onClick={() => onExpand(album.id)}
       className="gcell group bg-[#111111] p-4 flex flex-col justify-between cursor-pointer
                   hover:bg-[#181818]"
-      style={{ willChange: "transform", position: "relative" }}
+      style={{
+        willChange: "transform",
+        position: "relative",
+        opacity: dimmed ? 0.25 : 1,
+        transition: "opacity 300ms ease, box-shadow 300ms ease",
+        boxShadow: glowing ? "inset 0 0 0 1px rgba(255,255,255,0.07), inset 0 0 24px rgba(255,255,255,0.03)" : "none",
+      }}
     >
       <div className="flex items-start justify-between">
-        <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">
-          {String(album.seq).padStart(2, "0")}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">
+            {String(album.seq).padStart(2, "0")}
+          </span>
+          {album.latest && (
+            <span className="font-mono text-[7px] tracking-widest text-white border border-white/30 px-1 leading-tight">
+              NEW
+            </span>
+          )}
+        </div>
         <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">{album.tier}</span>
       </div>
       <div className="mt-2 flex-1">
@@ -198,6 +219,11 @@ function AlbumExpandedCell({ album, onCollapse }) {
       </div>
 
       <div className="relative z-10 flex-1 flex flex-col justify-center mt-4">
+        {album.latest && (
+          <span className="font-mono text-[8px] tracking-widest text-white border border-white/30 px-1 leading-tight self-start mb-2">
+            NEW
+          </span>
+        )}
         <p className="text-[22px] font-bold text-white leading-tight tracking-tight">
           {album.crowned && <span className="mr-2 text-white">♛</span>}
           {album.title}
@@ -221,28 +247,61 @@ function AlbumExpandedCell({ album, onCollapse }) {
 
 // ─── Spotlight cell (2×2) ─────────────────────────────────────────────────────
 function SpotlightCell({ item, videoRef }) {
-  const hasVideo = item.id === "s2";
-  const cardRef  = useRef(null);
+  const isCollection = item.id === "s2";
+  const cardRef    = useRef(null);
+  const contentRef = useRef(null);
+  const genreRef   = useRef(null);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    if (!hovered || !genreRef.current) return;
+    const rows = [...genreRef.current.children];
+    rows.forEach((r) => { r.style.opacity = "0"; r.style.transform = "translateY(8px)"; });
+    animate(rows, {
+      opacity:    [0, 1],
+      translateY: [8, 0],
+      duration:   220,
+      ease:       "outQuart",
+      delay:      stagger(50),
+    });
+  }, [hovered]);
 
   function onMouseMove(e) {
-    const el = cardRef.current;
+    const el      = cardRef.current;
+    const content = contentRef.current;
     if (!el) return;
     const { left, top, width, height } = el.getBoundingClientRect();
     const x  = (e.clientX - left) / width;
     const y  = (e.clientY - top)  / height;
-    const rx = (0.5 - y) * 10;
-    const ry = (x - 0.5) * 14;
-    el.style.transition = "";
-    el.style.transform  = `perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.03)`;
-    el.style.zIndex     = "10";
+    const rx = (0.5 - y) * 16;
+    const ry = (x - 0.72) * 22;
+    el.style.transition      = "";
+    el.style.transformOrigin = "72% center";
+    el.style.transform       = `perspective(480px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.06)`;
+    el.style.zIndex          = "10";
+    if (isCollection && content) {
+      const tx = (x - 0.5) * 20;
+      const ty = (y - 0.5) * 12;
+      content.style.transition = "";
+      content.style.transform  = `translate(${tx}px, ${ty}px)`;
+    }
   }
 
   function onMouseLeave() {
-    const el = cardRef.current;
+    const el      = cardRef.current;
+    const content = contentRef.current;
     if (!el) return;
-    el.style.transition = "transform 500ms cubic-bezier(0.23,1,0.32,1)";
-    el.style.transform  = "";
-    el.style.zIndex     = "";
+    el.style.transition      = "transform 500ms cubic-bezier(0.23,1,0.32,1)";
+    el.style.transformOrigin = "";
+    el.style.transform       = "";
+    el.style.zIndex          = "";
+    if (isCollection) {
+      setHovered(false);
+      if (content) {
+        content.style.transition = "transform 500ms cubic-bezier(0.23,1,0.32,1)";
+        content.style.transform  = "";
+      }
+    }
   }
 
   return (
@@ -250,12 +309,13 @@ function SpotlightCell({ item, videoRef }) {
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
+      onMouseEnter={isCollection ? () => setHovered(true) : undefined}
       data-spotlight-id={item.id}
       className="gcell col-span-2 row-span-2 bg-[#0f0f0f] p-6 flex flex-col justify-end
                   relative overflow-hidden cursor-default"
       style={{ willChange: "transform" }}
     >
-      {hasVideo && (
+      {isCollection && (
         <video
           ref={videoRef}
           autoPlay loop muted playsInline
@@ -267,35 +327,97 @@ function SpotlightCell({ item, videoRef }) {
       )}
       <div
         className="absolute inset-0 bg-gradient-to-br from-[#1c1c1c] via-[#111111] to-[#080808]"
-        style={{ opacity: hasVideo ? 0.2 : 1 }}
+        style={{ opacity: isCollection ? 0.2 : 1 }}
       />
-      <div className="relative z-10">
+      <div ref={isCollection ? contentRef : undefined} className="relative z-10">
         <p className="font-mono text-[9px] tracking-[0.25em] text-[#c8c8c8] mb-4 uppercase">
           {item.eyebrow}
         </p>
-        <h2 className="text-[26px] font-bold text-[#c8c8c8] leading-tight whitespace-pre-line tracking-tight">
-          {item.title}
-        </h2>
-        <p className="text-[11px] text-[#c8c8c8] mt-3 leading-relaxed">{item.body}</p>
+        {isCollection && hovered ? (
+          <div ref={genreRef} className="flex flex-col gap-2.5">
+            {GENRE_BREAKDOWN.map(([genre, count]) => (
+              <div key={genre} className="flex items-baseline justify-between">
+                <span className="text-[18px] font-bold text-[#c8c8c8] leading-tight tracking-tight">
+                  {genre}
+                </span>
+                <span className="font-mono text-[14px] text-white">{count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <h2 className="text-[26px] font-bold text-[#c8c8c8] leading-tight whitespace-pre-line tracking-tight">
+              {item.title}
+            </h2>
+            <p className="text-[11px] text-[#c8c8c8] mt-3 leading-relaxed">{item.body}</p>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Filter tab ───────────────────────────────────────────────────────────────
-function FilterTab({ label, active, onClick }) {
+// ─── Knob toggle ──────────────────────────────────────────────────────────────
+function KnobToggle({ active, onClick, label = "Own Vinyl" }) {
+  const knobRef = useRef(null);
+  const prevRef = useRef(active);
+  // off = 400deg, on = 480deg (+80 CW), consistent absolute rotation
+  const rotRef  = useRef(active ? 45 : 375);
+
+  // Set initial transform via JS so it uses the same property as anime.js
+  useLayoutEffect(() => {
+    if (knobRef.current) {
+      knobRef.current.style.transform = `rotate(${rotRef.current}deg)`;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!knobRef.current) return;
+    const wasActive = prevRef.current;
+    prevRef.current = active;
+    if (active === wasActive) return;
+
+    const from  = rotRef.current;
+    const delta = active ? +80 : -80;  // CW to turn on, CCW to turn off
+    const to    = from + delta;
+    rotRef.current = to;
+
+    animate(knobRef.current, {
+      rotate:   [from, to],
+      duration: 480,
+      ease:     "outBack(1.4)",
+    });
+  }, [active]);
+
   return (
     <button
       onClick={onClick}
-      className={cn(
-        "font-mono text-[11px] transition-colors duration-150",
-        active ? "text-[#e0e0e0]" : "text-[#404040] hover:text-[#888888]"
-      )}
+      className="flex items-center gap-1.5 group"
+      title={label}
     >
-      {label}
+      <svg
+        ref={knobRef}
+        width="14" height="14" viewBox="0 0 24 24" fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ willChange: "transform" }}
+        className={cn(
+          "transition-colors duration-200",
+          active ? "text-[#e0e0e0]" : "text-[#888] group-hover:text-[#bbb]"
+        )}
+      >
+        <path d="M8.41826 9.71486C7.43023 10.4735 6.18444 10.3257 5.44765 9.38856C4.74632 8.49652 4.88303 7.23351 5.75977 6.50505C6.66693 5.75131 7.90046 5.85063 8.6789 6.7401C9.45676 7.62891 9.35883 8.86337 8.41826 9.71486Z" fill="currentColor"/>
+        <path d="M10.9219 0C11.751 0 12.5801 0 13.4441 0.00959808C13.6134 0.121743 13.7808 0.0879107 13.9292 0.110948C15.2726 0.319523 16.5319 0.76075 17.7275 1.40485C19.1385 2.16503 20.3372 3.17247 21.35 4.41191C22.4508 5.7591 23.2136 7.27438 23.6577 8.95343C23.8287 9.5997 23.9289 10.2583 24 10.9219C24 11.626 24 12.3301 23.9982 13.0749C23.957 13.3993 23.919 13.6833 23.8778 13.9668C23.6971 15.2101 23.2918 16.3824 22.7235 17.4967C22.3736 18.1828 21.961 18.8335 21.4768 19.4363C20.786 20.2962 20.0055 21.0627 19.1169 21.7172C18.4193 22.2308 17.6743 22.6624 16.882 23.014C16.0326 23.3909 15.1546 23.669 14.2397 23.8377C13.9925 23.8833 13.7282 23.8642 13.5 24C12.6553 24 11.8105 24 10.9259 23.995C10.4132 23.9556 9.94724 23.8731 9.48292 23.7819C8.53908 23.5965 7.63931 23.2744 6.77498 22.8604C5.98733 22.4831 5.24697 22.0228 4.56294 21.4764C3.79956 20.8666 3.1134 20.1807 2.5081 19.4125C1.86875 18.6011 1.34787 17.7201 0.938169 16.7736C0.585134 15.9581 0.323412 15.1144 0.162492 14.2382C0.117207 13.9916 0.143 13.7259 0 13.5C0 12.5146 1.86265e-09 11.5293 0.0132504 10.5114C0.105967 10.3306 0.0951126 10.1629 0.11965 10.0047C0.313582 8.75465 0.717098 7.57136 1.2977 6.45439C2.00814 5.08765 2.95449 3.90365 4.12342 2.88982C5.30514 1.86489 6.63354 1.11035 8.10249 0.593933C9.01542 0.272989 9.96079 0.0969967 10.9219 0ZM4.78222 3.77462C3.75836 4.69471 2.91 5.75172 2.2777 6.97821C1.60633 8.28047 1.20844 9.65684 1.08628 11.1209C1.00925 12.044 1.04437 12.9579 1.20597 13.8636C1.52177 15.6336 2.22802 17.2342 3.33043 18.6624C3.96388 19.4831 4.68945 20.2081 5.52075 20.8184C6.59627 21.6079 7.77874 22.1953 9.06999 22.5523C10.4119 22.9233 11.7767 23.0484 13.1596 22.8959C14.0815 22.7943 14.9796 22.5774 15.8504 22.2474C17.1412 21.7582 18.2998 21.049 19.3221 20.1304C20.2015 19.3401 20.9263 18.4189 21.5183 17.3883C22.3727 15.9011 22.8312 14.2994 22.9438 12.5995C23.001 11.7368 22.9282 10.8756 22.7702 10.0207C22.3955 7.9939 21.5073 6.21986 20.1416 4.68911C19.3597 3.81275 18.4485 3.08723 17.4245 2.49821C15.9393 1.6439 14.3406 1.17658 12.642 1.05784C11.6372 0.987606 10.6332 1.07338 9.65016 1.29939C7.83519 1.71665 6.21318 2.52377 4.78222 3.77462Z" fill="currentColor"/>
+      </svg>
+      <span className={cn(
+        "font-mono text-[11px] transition-colors duration-200",
+        active ? "text-[#e0e0e0]" : "text-[#888] group-hover:text-[#bbb]"
+      )}>
+        {label}
+      </span>
     </button>
   );
 }
+
 
 // ─── Dropdown select ──────────────────────────────────────────────────────────
 function FooterSelect({ value, onChange, options }) {
@@ -347,7 +469,7 @@ function FooterSelect({ value, onChange, options }) {
         onClick={toggle}
         className={cn(
           "font-mono text-[11px] transition-colors duration-150",
-          visible ? "text-[#e0e0e0]" : "text-[#404040] hover:text-[#888888]"
+          visible ? "text-[#e0e0e0]" : "text-[#888] hover:text-[#bbb]"
         )}
       >
         {selected?.label}
@@ -391,6 +513,71 @@ const SORT_OPTIONS  = [
   { value: "Year",   label: "Year"   },
 ];
 const TIER_TABS = ["All", "S", "A", "B", "C", "D"];
+// ─── Tier pitch slider (horizontal) ──────────────────────────────────────────
+const TIER_STEP = 30; // px between each option center
+
+function TierSlider({ value, onChange }) {
+  const handleRef = useRef(null);
+  const idxRef    = useRef(TIER_TABS.indexOf(value));
+  const idx       = TIER_TABS.indexOf(value);
+
+  useEffect(() => {
+    if (!handleRef.current) return;
+    const prev = idxRef.current;
+    idxRef.current = idx;
+    if (prev === idx) return;
+    // FLIP: handle CSS left has already moved to new idx; animate translateX from old offset
+    animate(handleRef.current, {
+      translateX: [(prev - idx) * TIER_STEP, 0],
+      duration:   300,
+      ease:       "outQuart",
+    });
+  }, [idx]);
+
+  const totalW = (TIER_TABS.length - 1) * TIER_STEP + 16;
+
+  return (
+    <div className="relative flex-shrink-0" style={{ width: totalW, height: "100%" }}>
+      {/* Ticks + labels — each is a clickable button */}
+      {TIER_TABS.map((t, i) => (
+        <button
+          key={t}
+          onClick={() => onChange(t)}
+          className="absolute flex flex-col items-center"
+          style={{ left: i * TIER_STEP + 8 - 6, top: 0, bottom: 0, width: 12, justifyContent: "center", gap: 3 }}
+        >
+          <span className={cn(
+            "font-mono text-[9px] leading-none transition-colors duration-150",
+            value === t ? "text-[#d8d8d8]" : "text-[#888] hover:text-[#bbb]"
+          )}>
+            {t}
+          </span>
+          <div style={{ width: 1, height: 5, background: value === t ? "#555" : "#242424" }} />
+        </button>
+      ))}
+
+      {/* Rail */}
+      <div
+        className="absolute bg-[#1e1e1e]"
+        style={{ left: 8, right: 8, bottom: 10, height: 1 }}
+      />
+
+      {/* Handle */}
+      <div
+        ref={handleRef}
+        className="absolute"
+        style={{
+          left:         idx * TIER_STEP + 8 - 5,
+          bottom:       6,
+          width:        10,
+          height:       9,
+          background:   "#3a3a3a",
+          border:       "1px solid #585858",
+        }}
+      />
+    </div>
+  );
+}
 
 export default function Home() {
   const [genre,      setGenre]      = useState("All");
@@ -398,17 +585,19 @@ export default function Home() {
   const [sort,       setSort]       = useState("Rating");
   const [sortDir,    setSortDir]    = useState("desc");
   const [vinylOnly,  setVinylOnly]  = useState(false);
+  const [newOnly,    setNewOnly]    = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [progress,   setProgress]   = useState(0);
 
-  const gridRef        = useRef(null);
-  const mainRef        = useRef(null);
-  const lenisRef       = useRef(null);
-  const animModeRef    = useRef(null);       // 'filter' | 'sort'
-  const prevPosRef     = useRef({});         // { [albumId]: DOMRect }
-  const videoRef       = useRef(null);
-  const isInitialMount = useRef(true);
-  const time = useTime();
+  const gridRef          = useRef(null);
+  const mainRef          = useRef(null);
+  const lenisRef         = useRef(null);
+  const animModeRef      = useRef(null);
+  const prevPosRef       = useRef({});
+  const videoRef         = useRef(null);
+  const isInitialMount   = useRef(true);
+  const prevIsDefaultRef = useRef(true); // true = default state on first render
+  const wasDragRef       = useRef(false);
 
   // ── Dynamic row count ─────────────────────────────────────────────────────
   const [rowCount, setRowCount] = useState(6);
@@ -423,10 +612,15 @@ export default function Home() {
   }, []);
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const sorted = useMemo(() => computeSorted(genre, tier, sort, vinylOnly, sortDir), [genre, tier, sort, vinylOnly, sortDir]);
+  const sorted = useMemo(() => computeSorted(genre, tier, sort, vinylOnly, sortDir, newOnly), [genre, tier, sort, vinylOnly, sortDir, newOnly]);
 
-  const isDefault = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "desc" && !vinylOnly;
-  const items     = useMemo(() => buildItems(sorted, isDefault, expandedId), [sorted, isDefault, expandedId]);
+  const isDefault  = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "desc" && !vinylOnly && !newOnly;
+  const hasFilter  = !isDefault && (genre !== "All" || tier !== "All" || vinylOnly || newOnly);
+  const matchedIds = useMemo(() => {
+    if (!hasFilter) return null;
+    return new Set(ALBUMS.filter((a) => isMatch(a, genre, tier, vinylOnly, newOnly)).map((a) => a.id));
+  }, [genre, tier, vinylOnly, newOnly, hasFilter]);
+  const items      = useMemo(() => buildItems(sorted, isDefault, expandedId), [sorted, isDefault, expandedId]);
 
   // ── Position snapshot helper ──────────────────────────────────────────────
   function capturePositions() {
@@ -442,6 +636,7 @@ export default function Home() {
 
   // ── Expand / collapse ─────────────────────────────────────────────────────
   function handleExpand(albumId) {
+    if (wasDragRef.current) { wasDragRef.current = false; return; }
     animModeRef.current = "expand";
     capturePositions();
     setExpandedId(albumId);
@@ -453,53 +648,51 @@ export default function Home() {
     setExpandedId(null);
   }
 
-  // ── Sort change: capture → FLIP ───────────────────────────────────────────
-  function handleSortChange(newSort) {
-    animModeRef.current = "sort";
+  // ── Spotlight shrink-out helper ───────────────────────────────────────────
+  function applyWithSpotlightTransition(willBeDefault, applyFn) {
     capturePositions();
-    setSort(newSort);
+    animModeRef.current = "sort";
+    if (isDefault && !willBeDefault) {
+      const els = gridRef.current
+        ? [...gridRef.current.querySelectorAll("[data-spotlight-id]")]
+        : [];
+      if (els.length > 0) {
+        animate(els, { scale: [1, 0], opacity: [1, 0], duration: 220, ease: "inQuart", delay: stagger(80) });
+      }
+    }
+    applyFn(); // fire immediately — FLIP and spotlight shrink run in parallel
+  }
+
+  // ── Sort / filter / reset handlers ───────────────────────────────────────
+  function handleSortChange(newSort) {
+    const wbd = genre === "All" && tier === "All" && newSort === "Rating" && sortDir === "desc" && !vinylOnly && !newOnly;
+    applyWithSpotlightTransition(wbd, () => setSort(newSort));
   }
 
   function handleDirChange() {
+    const newDir = sortDir === "desc" ? "asc" : "desc";
+    const wbd = genre === "All" && tier === "All" && sort === "Rating" && newDir === "desc" && !vinylOnly && !newOnly;
+    applyWithSpotlightTransition(wbd, () => setSortDir(newDir));
+  }
+
+  function handleFilterChange(newGenre, newTier, newVinylOnly, newNewOnly) {
+    const wbd = newGenre === "All" && newTier === "All" && sort === "Rating" && sortDir === "desc" && !newVinylOnly && !newNewOnly;
+    applyWithSpotlightTransition(wbd, () => {
+      setGenre(newGenre); setTier(newTier); setVinylOnly(newVinylOnly); setNewOnly(newNewOnly);
+    });
+  }
+
+  function resetAll() {
+    if (isDefault) return;
     animModeRef.current = "sort";
     capturePositions();
-    setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    setGenre("All"); setTier("All"); setSort("Rating"); setSortDir("desc"); setVinylOnly(false); setNewOnly(false);
   }
 
-  // ── Filter change: animate exits → update state ───────────────────────────
-  function handleFilterChange(newGenre, newTier, newVinylOnly) {
-    const newIds    = new Set(computeSorted(newGenre, newTier, sort, newVinylOnly, sortDir).map((a) => a.id));
-    const exitIds   = new Set(sorted.filter((a) => !newIds.has(a.id)).map((a) => a.id));
-    const exitEls   = gridRef.current
-      ? [...gridRef.current.querySelectorAll("[data-album-id]")].filter(
-          (el) => exitIds.has(Number(el.dataset.albumId))
-        )
-      : [];
-
-    const apply = () => {
-      animModeRef.current = "filter";
-      setGenre(newGenre);
-      setTier(newTier);
-      setVinylOnly(newVinylOnly);
-    };
-
-    if (exitEls.length > 0) {
-      animate(exitEls, {
-        scale:    [1, 0],
-        opacity:  [1, 0],
-        duration: 160,
-        ease:     "inQuart",
-        delay:    stagger(8),
-      });
-      setTimeout(apply, 200);
-    } else {
-      apply();
-    }
-  }
-
-  const changeGenre = (g)  => handleFilterChange(g, tier, vinylOnly);
-  const changeTier  = (t)  => handleFilterChange(genre, t, vinylOnly);
-  const changeVinyl = ()   => handleFilterChange(genre, tier, !vinylOnly);
+  const changeGenre = (g) => handleFilterChange(g,     tier,  vinylOnly,  newOnly);
+  const changeTier  = (t) => handleFilterChange(genre, t,     vinylOnly,  newOnly);
+  const changeVinyl = ()  => handleFilterChange(genre, tier, !vinylOnly,  newOnly);
+  const changeNew   = ()  => handleFilterChange(genre, tier,  vinylOnly, !newOnly);
 
   // ── Lenis horizontal scroll ───────────────────────────────────────────────
   useEffect(() => {
@@ -558,6 +751,7 @@ export default function Home() {
     }
 
     function onMouseUp() {
+      if (didDrag) wasDragRef.current = true;
       dragging = false;
       container.style.cursor = "";
     }
@@ -587,7 +781,7 @@ export default function Home() {
   useEffect(() => {
     lenisRef.current?.scrollTo(0, { immediate: true });
     setProgress(0);
-  }, [genre, tier, sort, sortDir, vinylOnly]);
+  }, [genre, tier, sort, sortDir, vinylOnly, newOnly]);
 
   // ── FLIP (sort) + entrance (filter) + initial load ───────────────────────
   useLayoutEffect(() => {
@@ -595,9 +789,19 @@ export default function Home() {
     animModeRef.current = null;
     if (!gridRef.current) return;
 
+    const prevIsDefault = prevIsDefaultRef.current;
+    prevIsDefaultRef.current = isDefault;
+
     if (isInitialMount.current) {
       isInitialMount.current = false;
       animateColumnReveal(gridRef.current);
+    } else if (!prevIsDefault && isDefault) {
+      // Spotlights just appeared — grow them in
+      const els = [...gridRef.current.querySelectorAll("[data-spotlight-id]")];
+      if (els.length > 0) {
+        els.forEach((el) => { el.style.opacity = "0"; el.style.transform = "scale(0)"; });
+        animate(els, { scale: [0, 1], opacity: [0, 1], duration: 450, ease: "outBack(1.1)", delay: stagger(100) });
+      }
     } else if (mode === "sort" || mode === "expand") {
       const prev    = prevPosRef.current;
       const cells   = [...gridRef.current.querySelectorAll("[data-album-id], [data-spotlight-id]")];
@@ -669,15 +873,12 @@ export default function Home() {
       >
         <div className="flex items-center gap-2 font-mono text-[11px]">
           <span className="text-[#e8e8e8] font-bold tracking-widest">Terry's Album List</span>
-          <span className="text-[#222]">·</span>
-          <span className="text-[#2a2a2a]">{time}</span>
+          <span className="text-[#444]">·</span>
+          <span className="text-[#888]">{hasFilter ? (matchedIds?.size ?? 0) : ALBUMS.length} albums</span>
         </div>
-        <nav className="flex items-center gap-3 font-mono text-[11px]">
-          <Link to="/about"     className="text-[#3a3a3a] hover:text-[#888] transition-colors">About</Link>
-          <span className="text-[#222]">·</span>
-          <Link to="/admin"     className="text-[#3a3a3a] hover:text-[#888] transition-colors">Admin</Link>
-          <span className="text-[#222]">·</span>
-          <Link to="/changelog" className="text-[#3a3a3a] hover:text-[#888] transition-colors">Changelog</Link>
+        <nav className="flex items-center gap-2 font-mono text-[9px]">
+          <Link to="/about"     className="text-[#888] hover:text-white border border-[#2a2a2a] hover:border-white px-1.5 py-0.5 tracking-widest transition-colors duration-150">ABOUT</Link>
+          <Link to="/changelog" className="text-[#888] hover:text-white border border-[#2a2a2a] hover:border-white px-1.5 py-0.5 tracking-widest transition-colors duration-150">CHANGELOG</Link>
         </nav>
       </header>
 
@@ -706,7 +907,7 @@ export default function Home() {
                   ? <SpotlightCell      key={item.id}  item={item} videoRef={item.id === "s2" ? videoRef : null} />
                   : item.type === "expanded"
                   ? <AlbumExpandedCell  key={item.id}  album={item} onCollapse={handleCollapse} />
-                  : <AlbumCell         key={item.id}  album={item} onExpand={handleExpand} />
+                  : <AlbumCell         key={item.id}  album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} />
               )}
             </div>
           </div>
@@ -737,35 +938,42 @@ export default function Home() {
         className="h-10 shrink-0 flex items-center justify-between bg-[#0c0c0c]"
         style={{ paddingLeft: "16px", paddingRight: "16px" }}
       >
-        {/* Left: count + vinyl toggle */}
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] text-[#2e2e2e]">
-            {sorted.length} {sorted.length === 1 ? "album" : "albums"}
-          </span>
-          <span className="text-[#222]">·</span>
-          <FilterTab label="Own Vinyl" active={vinylOnly} onClick={changeVinyl} />
+        {/* Left: vinyl + new toggles */}
+        <div className="flex items-center gap-4">
+          <KnobToggle active={newOnly}   onClick={changeNew}   label="New" />
+          <KnobToggle active={vinylOnly} onClick={changeVinyl} label="Own Vinyl" />
         </div>
 
-        {/* Center: genre + sort dropdowns */}
+        {/* Center: genre + sort dropdowns + reset */}
         <div className="flex items-center gap-3">
           <FooterSelect value={genre} onChange={changeGenre} options={GENRE_OPTIONS} />
           <span className="text-[#222]">·</span>
           <div className="flex items-center gap-1">
+
             <FooterSelect value={sort} onChange={handleSortChange} options={SORT_OPTIONS} />
             <button
               onClick={handleDirChange}
-              className="font-mono text-[9px] text-[#404040] hover:text-[#888888] transition-colors duration-150 leading-none"
+              className="font-mono text-[9px] text-[#888] hover:text-[#bbb] transition-colors duration-150 inline-flex items-center"
             >
               {sortDir === "desc" ? "▼" : "▲"}
             </button>
           </div>
+          {(sort !== "Rating" || genre !== "All" || tier !== "All" || vinylOnly || newOnly) && (
+            <>
+              <span className="text-[#333]">·</span>
+              <button
+                onClick={resetAll}
+                className="font-mono text-[11px] text-[#888] hover:text-[#bbb] transition-colors duration-150 leading-none"
+              >
+                Reset
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Right: tier tabs */}
-        <div className="flex items-center gap-3">
-          {TIER_TABS.map((t) => (
-            <FilterTab key={t} label={t} active={tier === t} onClick={() => changeTier(t)} />
-          ))}
+        {/* Right: tier pitch slider */}
+        <div className="relative self-stretch">
+          <TierSlider value={tier} onChange={changeTier} />
         </div>
       </footer>
 
