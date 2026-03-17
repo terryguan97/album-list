@@ -7,6 +7,18 @@ import { cn } from "@/lib/utils";
 import VinylIcon from "@/components/ui/VinylIcon";
 import albumsBgVideo from "@/assets/65390-514139029_tiny.mp4";
 
+// ─── Tier glow colors ─────────────────────────────────────────────────────────
+const TIER_COLOR = { S: "#c084fc", A: "#4ade80", B: "#60a5fa", C: "#f5c518", D: "#f87171" };
+function tierGlowStyle(tier) {
+  const c = TIER_COLOR[tier];
+  if (!c) return {};
+  return { color: c, textShadow: `0 0 6px ${c}99, 0 0 14px ${c}55` };
+}
+const SORT_HL = "#4ade80";
+function sortGlow(color = SORT_HL) {
+  return { color, textShadow: `0 0 6px ${color}99, 0 0 14px ${color}55` };
+}
+
 // ─── Genre breakdown for COLLECTION card ─────────────────────────────────────
 const GENRE_BREAKDOWN = (() => {
   const counts = {};
@@ -36,17 +48,49 @@ const SPOTLIGHTS = [
 
 const TIER_ORDER = { S: 0, A: 1, B: 2, C: 3, D: 4 };
 
-function buildItems(albums, showSpotlights, expandedId) {
+function buildItems(albums, showSpotlights, expandedId, rowCount, viewportCols, grouped) {
+  if (grouped) {
+    const result = [];
+    let seq = 1;
+    ["S", "A", "B", "C", "D"].forEach((t) => {
+      const group = albums.filter((a) => a.tier === t);
+      if (group.length === 0) return;
+      const numCols  = Math.max(1, Math.ceil(group.length / rowCount));
+      const padding  = numCols * rowCount - group.length;
+      result.push({ type: "divider", id: `divider-${t}`, tier: t });
+      group.forEach((a) => result.push({ ...a, type: a.id === expandedId ? "expanded" : "album", seq: seq++ }));
+      for (let i = 0; i < padding; i++)
+        result.push({ type: "empty", id: `empty-${t}-${i}` });
+    });
+    return result;
+  }
+
   const items = albums.map((a, i) => ({
     ...a,
     type: a.id === expandedId ? "expanded" : "album",
     seq: i + 1,
   }));
-  // Keep spotlights in the layout at all times (removing them shifts grid positions left,
-  // which causes the FLIP animation to incorrectly animate cards "leftward")
-  if (showSpotlights) {
-    if (items.length > 7)  items.splice(7,  0, SPOTLIGHTS[0]);
-    if (items.length > 48) items.splice(48, 0, SPOTLIGHTS[1]);
+  if (showSpotlights && items.length > 3) {
+    const n         = items.length;
+    const totalCols = viewportCols;
+
+    // s1: ~25% from top-left
+    const s1Idx = Math.min(
+      Math.floor(0.25 * totalCols) * rowCount + Math.floor(0.25 * rowCount),
+      n
+    );
+
+    // s2: pinned to bottom-right of viewport via explicit grid placement
+    const s2 = {
+      ...SPOTLIGHTS[1],
+      gridStyle: {
+        gridColumn: `${viewportCols - 2} / span 2`,
+        gridRow:    `${rowCount - 2} / span 2`,
+      },
+    };
+
+    items.splice(s1Idx, 0, SPOTLIGHTS[0]);
+    items.push(s2);
   }
   return items;
 }
@@ -60,7 +104,7 @@ function computeSorted(g, t, s, vo, dir, no) {
   const hasFilter = g !== "All" || t !== "All" || vo || no;
   const asc = dir === "asc";
   const cmp = {
-    Rating: (a, b) => asc ? TIER_ORDER[b.tier] - TIER_ORDER[a.tier] : TIER_ORDER[a.tier] - TIER_ORDER[b.tier],
+    Rating: (a, b) => asc ? TIER_ORDER[a.tier] - TIER_ORDER[b.tier] : TIER_ORDER[b.tier] - TIER_ORDER[a.tier],
     Album:  (a, b) => asc ? a.title.localeCompare(b.title)   : b.title.localeCompare(a.title),
     Artist: (a, b) => asc ? a.artist.localeCompare(b.artist) : b.artist.localeCompare(a.artist),
     Genre:  (a, b) => asc ? a.genre.localeCompare(b.genre)   : b.genre.localeCompare(a.genre),
@@ -76,13 +120,14 @@ function computeSorted(g, t, s, vo, dir, no) {
 }
 
 // ─── Column-reveal animation (initial load only) ─────────────────────────────
-function animateColumnReveal(gridEl) {
-  const allCells      = [...gridEl.querySelectorAll(".gcell")];
+function animateColumnReveal(gridEl, { spotlights = true } = {}) {
+  const allCells       = [...gridEl.querySelectorAll(".gcell")];
   const spotlightCells = allCells.filter((el) => el.classList.contains("col-span-2"));
   const regularCells   = allCells.filter((el) => !el.classList.contains("col-span-2"));
 
-  // Hide everything before any frame paints
-  allCells.forEach((el) => { el.style.opacity = "0"; });
+  // Hide cells before any frame paints (spotlights only if we're animating them)
+  regularCells.forEach((el) => { el.style.opacity = "0"; });
+  if (spotlights) spotlightCells.forEach((el) => { el.style.opacity = "0"; });
 
   // Group regular album cells by their column (left offset)
   const colMap = new Map();
@@ -104,17 +149,18 @@ function animateColumnReveal(gridEl) {
     });
   });
 
-  // Spotlight 2×2 cards appear after all album columns finish, one after the other
-  const afterAlbums = (sortedCols.length - 1) * 35 + 400 + 100;
-  spotlightCells.forEach((el, i) => {
-    animate(el, {
-      opacity:    [0, 1],
-      translateX: [-16, 0],
-      duration:   420,
-      ease:       "outQuart",
-      delay:      afterAlbums + i * 180,
+  if (spotlights) {
+    const afterAlbums = (sortedCols.length - 1) * 35 + 400 + 100;
+    spotlightCells.forEach((el, i) => {
+      animate(el, {
+        opacity:    [0, 1],
+        translateX: [-16, 0],
+        duration:   420,
+        ease:       "outQuart",
+        delay:      afterAlbums + i * 180,
+      });
     });
-  });
+  }
 }
 
 
@@ -144,11 +190,17 @@ function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
 }
 
 // ─── Album cell ───────────────────────────────────────────────────────────────
-function AlbumCell({ album, onExpand, matched, hasFilter }) {
+function AlbumCell({ album, onExpand, matched, hasFilter, sort }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
 
-  const dimmed    = hasFilter && !matched;
-  const glowing   = hasFilter &&  matched;
+  const dimmed  = hasFilter && !matched;
+  const glowing = hasFilter &&  matched;
+
+  const byRating = !sort || sort === "Rating";
+  const byYear   = sort === "Year";
+  const byArtist = sort === "Artist";
+  const byAlbum  = sort === "Album";
+  const byGenre  = sort === "Genre";
 
   return (
     <div
@@ -158,7 +210,7 @@ function AlbumCell({ album, onExpand, matched, hasFilter }) {
       onMouseLeave={onMouseLeave}
       onClick={() => onExpand(album.id)}
       className="gcell group bg-[#111111] p-4 flex flex-col justify-between cursor-pointer
-                  hover:bg-[#181818]"
+                  hover:bg-[#181818] border-b border-r border-[#1c1c1c]"
       style={{
         willChange: "transform",
         position: "relative",
@@ -169,26 +221,47 @@ function AlbumCell({ album, onExpand, matched, hasFilter }) {
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">
-            {String(album.seq).padStart(2, "0")}
-          </span>
+          {byGenre ? (
+            <span className="font-mono text-[10px] truncate max-w-[90px]" style={sortGlow()}>
+              {album.genre}
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">
+              {String(album.seq).padStart(2, "0")}
+            </span>
+          )}
           {album.latest && (
             <span className="font-mono text-[7px] tracking-widest text-white border border-white/30 px-1 leading-tight">
               NEW
             </span>
           )}
         </div>
-        <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">{album.tier}</span>
+        <span className="font-mono text-[10px]" style={byRating ? tierGlowStyle(album.tier) : { color: "#383838" }}>
+          {album.tier}
+        </span>
       </div>
       <div className="mt-2 flex-1">
-        <p className="text-[12.5px] font-medium text-[#bfbfbf] leading-snug line-clamp-2 transition-colors duration-250 group-hover:text-white">
+        <p
+          className="text-[12.5px] font-medium leading-snug line-clamp-2 transition-colors duration-250 group-hover:text-white"
+          style={byAlbum ? sortGlow() : { color: "#bfbfbf" }}
+        >
           {album.crowned && <span className="mr-1 text-[#666] transition-colors duration-250 group-hover:text-white">♛</span>}
           {album.title}
         </p>
-        <p className="text-[10.5px] text-[#484848] mt-0.5 truncate transition-colors duration-250 group-hover:text-white">{album.artist}</p>
+        <p
+          className="text-[10.5px] mt-0.5 truncate transition-colors duration-250 group-hover:text-white"
+          style={byArtist ? sortGlow() : { color: "#484848" }}
+        >
+          {album.artist}
+        </p>
       </div>
       <div className="flex items-end justify-between mt-2">
-        <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">{album.year}</span>
+        <span
+          className="font-mono text-[10px] transition-colors duration-250 group-hover:text-white"
+          style={byYear ? sortGlow() : { color: "#383838" }}
+        >
+          {album.year}
+        </span>
         {album.vinyl && <VinylIcon className="text-[#383838] transition-colors duration-250 group-hover:text-white" />}
       </div>
     </div>
@@ -196,8 +269,14 @@ function AlbumCell({ album, onExpand, matched, hasFilter }) {
 }
 
 // ─── Expanded album cell (2×2) ────────────────────────────────────────────────
-function AlbumExpandedCell({ album, onCollapse }) {
+function AlbumExpandedCell({ album, onCollapse, sort }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(10, 14, 1.03, 700);
+
+  const byRating = !sort || sort === "Rating";
+  const byYear   = sort === "Year";
+  const byArtist = sort === "Artist";
+  const byAlbum  = sort === "Album";
+  const byGenre  = sort === "Genre";
 
   return (
     <div
@@ -207,15 +286,17 @@ function AlbumExpandedCell({ album, onCollapse }) {
       onMouseLeave={onMouseLeave}
       onClick={onCollapse}
       className="gcell col-span-2 row-span-2 bg-[#161616] p-6 flex flex-col justify-between
-                  cursor-pointer hover:bg-[#1c1c1c] relative overflow-hidden"
+                  cursor-pointer hover:bg-[#1c1c1c] relative overflow-hidden border-b border-r border-[#1c1c1c]"
       style={{ willChange: "transform" }}
     >
       {/* subtle top-left glow */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#ffffff04] to-transparent pointer-events-none" />
 
       <div className="relative z-10 flex items-start justify-between">
-        <span className="font-mono text-[10px] text-white">{String(album.seq).padStart(2, "0")}</span>
-        <span className="font-mono text-[10px] text-white">{album.tier}</span>
+        <span className="font-mono text-[13px] text-white">{String(album.seq).padStart(2, "0")}</span>
+        <span className="font-mono text-[13px]" style={byRating ? tierGlowStyle(album.tier) : { color: "#555" }}>
+          {album.tier}
+        </span>
       </div>
 
       <div className="relative z-10 flex-1 flex flex-col justify-center mt-4">
@@ -224,12 +305,16 @@ function AlbumExpandedCell({ album, onCollapse }) {
             NEW
           </span>
         )}
-        <p className="text-[22px] font-bold text-white leading-tight tracking-tight">
-          {album.crowned && <span className="mr-2 text-white">♛</span>}
+        <p className="text-[22px] font-bold leading-tight tracking-tight"
+           style={byAlbum ? sortGlow() : { color: "white" }}>
+          {album.crowned && <span className="mr-2">♛</span>}
           {album.title}
         </p>
-        <p className="text-[13px] text-white/60 mt-1.5">{album.artist}</p>
-        <p className="font-mono text-[10px] text-white/30 mt-3 tracking-widest uppercase">
+        <p className="text-[13px] mt-1.5" style={byArtist ? sortGlow() : { color: "rgba(255,255,255,0.6)" }}>
+          {album.artist}
+        </p>
+        <p className="font-mono text-[10px] mt-3 tracking-widest uppercase"
+           style={byGenre ? sortGlow() : { color: "rgba(255,255,255,0.3)" }}>
           {album.genre}
         </p>
       </div>
@@ -237,10 +322,51 @@ function AlbumExpandedCell({ album, onCollapse }) {
       <div className="relative z-10 flex items-center justify-between mt-4">
         <div className="flex items-center gap-2">
           {album.vinyl && <VinylIcon className="text-white/50" />}
-          <span className="font-mono text-[10px] text-white/50">{album.year}</span>
+          <span className="font-mono text-[13px]" style={byYear ? sortGlow() : { color: "rgba(255,255,255,0.5)" }}>{album.year}</span>
         </div>
-        <span className="font-mono text-[9px] text-white/20 tracking-widest">CLICK TO CLOSE</span>
+        <span className="font-mono text-[11px] text-white/20 tracking-widest">CLICK TO CLOSE</span>
       </div>
+    </div>
+  );
+}
+
+// ─── Empty padding cell (grouped mode) ───────────────────────────────────────
+function EmptyCell() {
+  return <div className="bg-[#0e0e0e] border-b border-r border-[#1c1c1c]" />;
+}
+
+// ─── Tier divider cell ────────────────────────────────────────────────────────
+function TierDividerCell({ tier }) {
+  const color = TIER_COLOR[tier] ?? "#444";
+  return (
+    <div
+      className="gcell bg-[#0c0c0c]"
+      style={{
+        gridRow:    "1 / -1",
+        borderLeft: `4px solid ${color}`,
+        boxShadow:  `inset 6px 0 20px ${color}1a, -3px 0 18px ${color}55`,
+      }}
+    />
+  );
+}
+
+// ─── Tier header strip (grouped mode) ─────────────────────────────────────────
+function TierHeaderStrip({ tierSections }) {
+  return (
+    <div className="flex shrink-0 border-b border-[#1c1c1c]" style={{ height: "26px" }}>
+      {tierSections.map(({ tier, numCols }) => {
+        const color = TIER_COLOR[tier] ?? "#444";
+        return (
+          <div key={tier} className="flex shrink-0" style={{ width: 4 + numCols * 171 }}>
+            <div style={{ width: 4, background: "#0c0c0c", boxShadow: `-3px 0 12px ${color}55` }} />
+            <div className="flex items-center px-3 bg-[#0c0c0c]" style={{ width: numCols * 171 }}>
+              <span className="font-mono text-[10px] tracking-widest" style={{ color, textShadow: `0 0 8px ${color}` }}>
+                {tier}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -312,8 +438,8 @@ function SpotlightCell({ item, videoRef }) {
       onMouseEnter={isCollection ? () => setHovered(true) : undefined}
       data-spotlight-id={item.id}
       className="gcell col-span-2 row-span-2 bg-[#0f0f0f] p-6 flex flex-col justify-end
-                  relative overflow-hidden cursor-default"
-      style={{ willChange: "transform" }}
+                  relative overflow-hidden cursor-default border-b border-r border-[#1c1c1c]"
+      style={{ willChange: "transform", ...item.gridStyle }}
     >
       {isCollection && (
         <video
@@ -583,9 +709,10 @@ export default function Home() {
   const [genre,      setGenre]      = useState("All");
   const [tier,       setTier]       = useState("All");
   const [sort,       setSort]       = useState("Rating");
-  const [sortDir,    setSortDir]    = useState("desc");
+  const [sortDir,    setSortDir]    = useState("asc");
   const [vinylOnly,  setVinylOnly]  = useState(false);
   const [newOnly,    setNewOnly]    = useState(false);
+  const [grouped,    setGrouped]    = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [progress,   setProgress]   = useState(0);
 
@@ -599,13 +726,17 @@ export default function Home() {
   const prevIsDefaultRef = useRef(true); // true = default state on first render
   const wasDragRef       = useRef(false);
 
-  // ── Dynamic row count ─────────────────────────────────────────────────────
-  const [rowCount, setRowCount] = useState(6);
+  // ── Dynamic row / viewport-col count ──────────────────────────────────────
+  const [rowCount,     setRowCount]     = useState(6);
+  const [viewportCols, setViewportCols] = useState(8);
   useEffect(() => {
     const CHROME = 32 + 1 + 40;
     const ROW_H  = 131;
-    const update = () =>
+    const COL_W  = 171; // 170px card + 1px border
+    const update = () => {
       setRowCount(Math.max(2, Math.floor((window.innerHeight - CHROME) / ROW_H)));
+      setViewportCols(Math.max(2, Math.floor(window.innerWidth / COL_W)));
+    };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
@@ -614,13 +745,26 @@ export default function Home() {
   // ── Derived state ─────────────────────────────────────────────────────────
   const sorted = useMemo(() => computeSorted(genre, tier, sort, vinylOnly, sortDir, newOnly), [genre, tier, sort, vinylOnly, sortDir, newOnly]);
 
-  const isDefault  = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "desc" && !vinylOnly && !newOnly;
+  const isDefault  = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "asc" && !vinylOnly && !newOnly && !grouped;
   const hasFilter  = !isDefault && (genre !== "All" || tier !== "All" || vinylOnly || newOnly);
   const matchedIds = useMemo(() => {
     if (!hasFilter) return null;
     return new Set(ALBUMS.filter((a) => isMatch(a, genre, tier, vinylOnly, newOnly)).map((a) => a.id));
   }, [genre, tier, vinylOnly, newOnly, hasFilter]);
-  const items      = useMemo(() => buildItems(sorted, isDefault, expandedId), [sorted, isDefault, expandedId]);
+  const items      = useMemo(() => buildItems(sorted, isDefault, expandedId, rowCount, viewportCols, grouped), [sorted, isDefault, expandedId, rowCount, viewportCols, grouped]);
+
+  const tierSections = useMemo(() => {
+    if (!grouped) return [];
+    return ["S","A","B","C","D"].flatMap((t) => {
+      const count = sorted.filter((a) => a.tier === t).length;
+      if (count === 0) return [];
+      return [{ tier: t, numCols: Math.max(1, Math.ceil(count / rowCount)) }];
+    });
+  }, [grouped, sorted, rowCount]);
+
+  const gridTemplateCols = grouped && tierSections.length > 0
+    ? tierSections.map(({ numCols }) => `4px ${"171px ".repeat(numCols).trim()}`).join(" ")
+    : undefined;
 
   // ── Position snapshot helper ──────────────────────────────────────────────
   function capturePositions() {
@@ -665,18 +809,19 @@ export default function Home() {
 
   // ── Sort / filter / reset handlers ───────────────────────────────────────
   function handleSortChange(newSort) {
-    const wbd = genre === "All" && tier === "All" && newSort === "Rating" && sortDir === "desc" && !vinylOnly && !newOnly;
-    applyWithSpotlightTransition(wbd, () => setSort(newSort));
+    const defaultDir = newSort === "Year" ? "desc" : "asc";
+    const wbd = genre === "All" && tier === "All" && newSort === "Rating" && defaultDir === "asc" && !vinylOnly && !newOnly && !grouped;
+    applyWithSpotlightTransition(wbd, () => { setSort(newSort); setSortDir(defaultDir); });
   }
 
   function handleDirChange() {
     const newDir = sortDir === "desc" ? "asc" : "desc";
-    const wbd = genre === "All" && tier === "All" && sort === "Rating" && newDir === "desc" && !vinylOnly && !newOnly;
+    const wbd = genre === "All" && tier === "All" && sort === "Rating" && newDir === "asc" && !vinylOnly && !newOnly && !grouped;
     applyWithSpotlightTransition(wbd, () => setSortDir(newDir));
   }
 
   function handleFilterChange(newGenre, newTier, newVinylOnly, newNewOnly) {
-    const wbd = newGenre === "All" && newTier === "All" && sort === "Rating" && sortDir === "desc" && !newVinylOnly && !newNewOnly;
+    const wbd = newGenre === "All" && newTier === "All" && sort === "Rating" && sortDir === "asc" && !newVinylOnly && !newNewOnly && !grouped;
     applyWithSpotlightTransition(wbd, () => {
       setGenre(newGenre); setTier(newTier); setVinylOnly(newVinylOnly); setNewOnly(newNewOnly);
     });
@@ -686,13 +831,18 @@ export default function Home() {
     if (isDefault) return;
     animModeRef.current = "sort";
     capturePositions();
-    setGenre("All"); setTier("All"); setSort("Rating"); setSortDir("desc"); setVinylOnly(false); setNewOnly(false);
+    setGenre("All"); setTier("All"); setSort("Rating"); setSortDir("asc"); setVinylOnly(false); setNewOnly(false); setGrouped(false);
   }
 
   const changeGenre = (g) => handleFilterChange(g,     tier,  vinylOnly,  newOnly);
   const changeTier  = (t) => handleFilterChange(genre, t,     vinylOnly,  newOnly);
   const changeVinyl = ()  => handleFilterChange(genre, tier, !vinylOnly,  newOnly);
   const changeNew   = ()  => handleFilterChange(genre, tier,  vinylOnly, !newOnly);
+  const changeGroup = ()  => {
+    const next = !grouped;
+    const wbd  = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "asc" && !vinylOnly && !newOnly && !next;
+    applyWithSpotlightTransition(wbd, () => setGrouped(next));
+  };
 
   // ── Lenis horizontal scroll ───────────────────────────────────────────────
   useEffect(() => {
@@ -781,7 +931,7 @@ export default function Home() {
   useEffect(() => {
     lenisRef.current?.scrollTo(0, { immediate: true });
     setProgress(0);
-  }, [genre, tier, sort, sortDir, vinylOnly, newOnly]);
+  }, [genre, tier, sort, sortDir, vinylOnly, newOnly, grouped]);
 
   // ── FLIP (sort) + entrance (filter) + initial load ───────────────────────
   useLayoutEffect(() => {
@@ -796,12 +946,7 @@ export default function Home() {
       isInitialMount.current = false;
       animateColumnReveal(gridRef.current);
     } else if (!prevIsDefault && isDefault) {
-      // Spotlights just appeared — grow them in
-      const els = [...gridRef.current.querySelectorAll("[data-spotlight-id]")];
-      if (els.length > 0) {
-        els.forEach((el) => { el.style.opacity = "0"; el.style.transform = "scale(0)"; });
-        animate(els, { scale: [0, 1], opacity: [0, 1], duration: 450, ease: "outBack(1.1)", delay: stagger(100) });
-      }
+      animateColumnReveal(gridRef.current);
     } else if (mode === "sort" || mode === "expand") {
       const prev    = prevPosRef.current;
       const cells   = [...gridRef.current.querySelectorAll("[data-album-id], [data-spotlight-id]")];
@@ -820,7 +965,6 @@ export default function Home() {
         if (!isScaling && !isMoving) return;
 
         if (isScaling) {
-          // The expanding/collapsing card — FLIP with scale from top-left origin
           el.style.transformOrigin = "top left";
           animate(el, {
             translateX: [dx, 0],
@@ -892,22 +1036,28 @@ export default function Home() {
             No albums match.
           </div>
         ) : (
-          <div className="h-full">
+          <div className="h-full flex flex-col">
+            {grouped && <TierHeaderStrip tierSections={tierSections} />}
             <div
               ref={gridRef}
-              className="grid gap-px bg-[#1c1c1c] h-full"
+              className="grid flex-1 border-t border-l border-[#1c1c1c]"
               style={{
-                gridTemplateRows: `repeat(${rowCount}, 1fr)`,
-                gridAutoColumns:  "170px",
-                gridAutoFlow:     "column dense",
+                gridTemplateRows:    `repeat(${rowCount}, 1fr)`,
+                gridTemplateColumns: gridTemplateCols,
+                gridAutoColumns:     "170px",
+                gridAutoFlow:        "column dense",
               }}
             >
               {items.map((item) =>
-                item.type === "spotlight"
+                item.type === "empty"
+                  ? <EmptyCell          key={item.id} />
+                  : item.type === "divider"
+                  ? <TierDividerCell    key={item.id}  tier={item.tier} />
+                  : item.type === "spotlight"
                   ? <SpotlightCell      key={item.id}  item={item} videoRef={item.id === "s2" ? videoRef : null} />
                   : item.type === "expanded"
-                  ? <AlbumExpandedCell  key={item.id}  album={item} onCollapse={handleCollapse} />
-                  : <AlbumCell         key={item.id}  album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} />
+                  ? <AlbumExpandedCell  key={item.id}  album={item} onCollapse={handleCollapse} sort={sort} />
+                  : <AlbumCell         key={item.id}  album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} />
               )}
             </div>
           </div>
@@ -917,7 +1067,7 @@ export default function Home() {
       {/* ── Mobile: vertical scroll grid ── */}
       <main className="flex-1 overflow-y-auto md:hidden">
         <div
-          className="grid gap-px bg-[#1c1c1c]"
+          className="grid border-t border-l border-[#1c1c1c]"
           style={{ gridTemplateColumns: "repeat(2, 1fr)", gridAutoRows: "130px" }}
         >
           {items.map((item) =>
@@ -938,10 +1088,11 @@ export default function Home() {
         className="h-10 shrink-0 flex items-center justify-between bg-[#0c0c0c]"
         style={{ paddingLeft: "16px", paddingRight: "16px" }}
       >
-        {/* Left: vinyl + new toggles */}
+        {/* Left: vinyl + new + group toggles */}
         <div className="flex items-center gap-4">
           <KnobToggle active={newOnly}   onClick={changeNew}   label="New" />
           <KnobToggle active={vinylOnly} onClick={changeVinyl} label="Own Vinyl" />
+          <KnobToggle active={grouped}   onClick={changeGroup} label="Group" />
         </div>
 
         {/* Center: genre + sort dropdowns + reset */}
@@ -958,7 +1109,7 @@ export default function Home() {
               {sortDir === "desc" ? "▼" : "▲"}
             </button>
           </div>
-          {(sort !== "Rating" || genre !== "All" || tier !== "All" || vinylOnly || newOnly) && (
+          {(sort !== "Rating" || sortDir !== "asc" || genre !== "All" || tier !== "All" || vinylOnly || newOnly || grouped) && (
             <>
               <span className="text-[#333]">·</span>
               <button
