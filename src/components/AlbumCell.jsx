@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTilt } from "@/hooks/useTilt";
 import { tierGlowStyle, sortGlow } from "@/constants/theme";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ import VinylIcon from "@/components/ui/VinylIcon";
  */
 export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault, compact = false, className: extraClass }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
+  const [hovered, setHovered] = useState(false);
 
   const dimmed  = hasFilter && !matched;
   const glowing = hasFilter &&  matched;
@@ -20,14 +22,18 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
   const byAlbum  = sort === "Album";
   const byGenre  = sort === "Genre";
 
+  const white = "white";
+  const t = "color 250ms ease";
+
   return (
     <div
       ref={cardRef}
       data-album-id={album.id}
       onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); onMouseLeave(); }}
       onClick={() => onExpand(album.id)}
-      className={cn("gcell group bg-[#111111] p-4 flex flex-col justify-between cursor-pointer hover:bg-[#181818] border-b border-r border-[#1c1c1c]", extraClass)}
+      className={cn("gcell group bg-[#111111] p-4 flex flex-col justify-between cursor-pointer hover:bg-[#181818] border-b border-r border-[#1c1c1c] overflow-hidden", extraClass)}
       style={{
         willChange: "transform",
         position: "relative",
@@ -38,6 +44,15 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
           : "none",
       }}
     >
+      {/* ── Cover art background ── */}
+      {album.cover && (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500 opacity-0 group-hover:opacity-[0.25]"
+          style={{ backgroundImage: `url(${album.cover})` }}
+        />
+      )}
+
       {/* ── Desktop grid layout (vertical) ── */}
       {!compact && (
         <>
@@ -48,7 +63,7 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
                   {album.genre}
                 </span>
               ) : (
-                <span className="font-mono text-[10px] text-[#383838] transition-colors duration-250 group-hover:text-white">
+                <span className="font-mono text-[10px] transition-colors duration-250" style={{ color: hovered ? white : "#383838", transition: t }}>
                   {String(album.seq).padStart(2, "0")}
                 </span>
               )}
@@ -58,22 +73,22 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
                 </span>
               )}
             </div>
-            <span className="font-mono text-[10px]" style={byRating ? tierGlowStyle(album.tier) : { color: "#383838" }}>
+            <span className="font-mono text-[10px]" style={byRating ? tierGlowStyle(album.tier) : { color: hovered ? white : "#383838", transition: t }}>
               {album.tier}
             </span>
           </div>
 
           <div className="hidden md:block mt-2 flex-1">
             <p
-              className="text-[12.5px] font-medium leading-snug line-clamp-2 transition-colors duration-250 group-hover:text-white"
-              style={byAlbum ? sortGlow() : { color: "#bfbfbf" }}
+              className="text-[12.5px] font-medium leading-snug line-clamp-2"
+              style={byAlbum ? sortGlow() : { color: hovered ? white : "#bfbfbf", transition: t }}
             >
-              {album.crowned && <span className="mr-1 text-[#666] transition-colors duration-250 group-hover:text-white">♛</span>}
+              {album.crowned && <span className="mr-1" style={{ color: hovered ? white : "#666", transition: t }}>♛</span>}
               {album.title}
             </p>
             <p
-              className="text-[10.5px] mt-0.5 truncate transition-colors duration-250 group-hover:text-white"
-              style={byArtist ? sortGlow() : { color: "#484848" }}
+              className="text-[10.5px] mt-0.5 truncate"
+              style={byArtist ? sortGlow() : { color: hovered ? white : "#484848", transition: t }}
             >
               {album.artist}
             </p>
@@ -81,27 +96,27 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
 
           <div className="hidden md:flex items-end justify-between mt-2">
             <span
-              className="font-mono text-[10px] transition-colors duration-250 group-hover:text-white"
-              style={byYear ? sortGlow() : { color: "#383838" }}
+              className="font-mono text-[10px]"
+              style={byYear ? sortGlow() : { color: hovered ? white : "#383838", transition: t }}
             >
               {album.year}
             </span>
-            {album.vinyl && <VinylIcon className="text-[#383838] transition-colors duration-250 group-hover:text-white" />}
+            {album.vinyl && <VinylIcon className="transition-colors duration-250" style={{ color: hovered ? white : "#383838" }} />}
           </div>
         </>
       )}
 
       {/* ── Horizontal layout (mobile + desktop list view) ── */}
       <div className={cn("items-center gap-3", compact ? "flex" : "flex md:hidden")}>
-        <span className="font-mono text-[10px] text-[#555] shrink-0 group-hover:text-white transition-colors duration-150">
+        <span className="font-mono text-[10px] shrink-0 transition-colors duration-150" style={{ color: hovered ? white : "#555", transition: t }}>
           {byGenre ? album.genre : String(album.seq).padStart(2, "0")}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-[16px] font-medium text-[#bfbfbf] truncate leading-snug group-hover:text-white transition-colors duration-150">
-            {album.crowned && <span className="mr-1 text-[#555]">♛</span>}
+          <p className="text-[16px] font-medium truncate leading-snug transition-colors duration-150" style={{ color: hovered ? white : "#bfbfbf", transition: t }}>
+            {album.crowned && <span className="mr-1" style={{ color: hovered ? white : "#555", transition: t }}>♛</span>}
             {album.title}
           </p>
-          <p className="text-[11px] text-[#484848] truncate group-hover:text-white transition-colors duration-150">
+          <p className="text-[11px] truncate transition-colors duration-150" style={{ color: hovered ? white : "#484848", transition: t }}>
             {album.artist}
           </p>
         </div>

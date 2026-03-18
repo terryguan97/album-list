@@ -26,12 +26,21 @@ export function AlbumExpandedCell({ album, onCollapse, sort }) {
                   cursor-pointer hover:bg-[#1c1c1c] relative overflow-hidden border-b border-r border-[#1c1c1c]"
       style={{ willChange: "transform" }}
     >
-      {/* Subtle top-left gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#ffffff04] to-transparent pointer-events-none" />
+      {/* Cover art background */}
+      {album.cover && (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center pointer-events-none opacity-[1]"
+          style={{ backgroundImage: `url(${album.cover})` }}
+        />
+      )}
+
+      {/* Dark gradient overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#161616]/60 to-[#161616]/80 pointer-events-none" />
 
       <div className="relative z-10 flex items-start justify-between">
         <span className="font-mono text-[13px] text-white">{String(album.seq).padStart(2, "0")}</span>
-        <span className="font-mono text-[13px]" style={byRating ? tierGlowStyle(album.tier) : { color: "#555" }}>
+        <span className="font-mono text-[13px]" style={byRating ? tierGlowStyle(album.tier) : { color: "white" }}>
           {album.tier}
         </span>
       </div>
@@ -48,22 +57,22 @@ export function AlbumExpandedCell({ album, onCollapse, sort }) {
             {album.crowned && <span className="mr-2">♛</span>}
             {album.title}
           </p>
-          {album.vinyl && <VinylIcon className="text-white/40 shrink-0" />}
+          {album.vinyl && <VinylIcon className="text-white shrink-0" />}
         </div>
-        <p className="text-[13px] mt-1.5" style={byArtist ? sortGlow() : { color: "rgba(255,255,255,0.6)" }}>
+        <p className="text-[13px] mt-1.5" style={byArtist ? sortGlow() : { color: "white" }}>
           {album.artist}
         </p>
         <p className="font-mono text-[10px] mt-3 tracking-widest uppercase"
-           style={byGenre ? sortGlow() : { color: "rgba(255,255,255,0.3)" }}>
+           style={byGenre ? sortGlow() : { color: "rgba(255,255,255,0.6)" }}>
           {album.genre}
         </p>
       </div>
 
       <div className="relative z-10 flex items-center justify-between mt-4">
-        <span className="font-mono text-[13px]" style={byYear ? sortGlow() : { color: "rgba(255,255,255,0.5)" }}>
+        <span className="font-mono text-[13px]" style={byYear ? sortGlow() : { color: "white" }}>
           {album.year}
         </span>
-        <span className="font-mono text-[11px] text-white/20 tracking-widest">CLICK TO CLOSE</span>
+        <span className="font-mono text-[11px] text-white/40 tracking-widest">CLICK TO CLOSE</span>
       </div>
     </div>
   );

@@ -289,7 +289,8 @@ const raw = [
   hp("Revival",                           "Eminem",                                    2017, "D"),
 ];
 
-export const ALBUMS = raw.map((a, i) => ({ id: i + 1, ...a }));
+import covers from "./covers.json" with { type: "json" };
+export const ALBUMS = raw.map((a, i) => ({ id: i + 1, ...a, cover: covers[String(i + 1)] ?? null }));
 
 export const GENRES = [...new Set(ALBUMS.map((a) => a.genre))].sort();
 export const TIERS  = ["S", "A", "B", "C", "D"];
