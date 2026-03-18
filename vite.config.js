@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "url";
 
 export default defineConfig({
+  base: "/album-list/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
