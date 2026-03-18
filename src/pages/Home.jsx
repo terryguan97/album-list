@@ -491,8 +491,8 @@ export default function Home() {
               return (
                 <div key={item.id} className="border-b border-[#1c1c1c]">
                   {item.type === "expanded"
-                    ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} /></div>
-                    : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} compact coverArts={coverArts} className="border-r-0" />
+                    ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} coverArts={coverArts} /></div>
+                    : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} compact coverArts={coverArts} vinylOnly={vinylOnly} className="border-r-0" />
                   }
                 </div>
               );
@@ -529,10 +529,10 @@ export default function Home() {
                   : item.type === "divider"
                   ? <TierDividerCell   key={item.id} tier={item.tier} />
                   : item.type === "spotlight"
-                  ? (coverArts ? <EmptyCell key={item.id} /> : <SpotlightCell key={item.id} item={item} videoRef={item.id === "s2" ? videoRef : null} />)
+                  ? <SpotlightCell key={item.id} item={item} videoRef={item.id === "s2" ? videoRef : null} />
                   : item.type === "expanded"
-                  ? <AlbumExpandedCell key={item.id} album={item} onCollapse={handleCollapse} sort={sort} />
-                  : <AlbumCell        key={item.id} album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} coverArts={coverArts} />
+                  ? <AlbumExpandedCell key={item.id} album={item} onCollapse={handleCollapse} sort={sort} coverArts={coverArts} />
+                  : <AlbumCell        key={item.id} album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} coverArts={coverArts} vinylOnly={vinylOnly} />
               )}
             </div>
           </div>
@@ -556,8 +556,8 @@ export default function Home() {
             return (
               <div key={item.id} className="border-b border-r border-[#1c1c1c]">
                 {item.type === "expanded"
-                  ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} /></div>
-                  : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} coverArts={coverArts} />
+                  ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} coverArts={coverArts} /></div>
+                  : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} coverArts={coverArts} vinylOnly={vinylOnly} />
                 }
               </div>
             );

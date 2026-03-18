@@ -29,19 +29,7 @@ function ColoredText({ text }) {
     );
   }
 
-  // Pattern: Verb Artist - Album (no tier, e.g. Removed)
-  const n = text.match(/^(\w+)\s+(.+)$/);
-  if (n && n[2].includes(" - ")) {
-    const [, verb, album] = n;
-    return (
-      <span>
-        <span style={grey}>{verb} </span>
-        <span style={white}>{album}</span>
-      </span>
-    );
-  }
-
-  // Fallback: scan for any "to/from TIER" references (handles multi-sentence entries).
+  // Scan for any "to/from TIER" references before trying simpler patterns.
   // Tier letter must be followed by comma, period, whitespace, or end-of-string.
   const segments = [];
   let last = 0;
@@ -62,6 +50,18 @@ function ColoredText({ text }) {
             ? <span key={i} style={tierGlowStyle(seg.t)}>{seg.t}</span>
             : <span key={i} style={grey}>{seg.t}</span>
         )}
+      </span>
+    );
+  }
+
+  // No tier reference — if it's "Verb Artist - Album", make the album white.
+  const n = text.match(/^(\w+)\s+(.+)$/);
+  if (n && n[2].includes(" - ")) {
+    const [, verb, album] = n;
+    return (
+      <span>
+        <span style={grey}>{verb} </span>
+        <span style={white}>{album}</span>
       </span>
     );
   }

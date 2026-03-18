@@ -57,7 +57,7 @@ export default function SubPageLayout({ children }) {
         </div>
 
         {/* Nav links */}
-        <nav ref={navRef} className="flex items-center gap-1">
+        <nav ref={navRef} className="flex items-center gap-2">
           {navLinks.map(({ label, to }) => {
             const isActive = location.pathname === to;
             return (

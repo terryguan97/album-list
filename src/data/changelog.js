@@ -87,8 +87,6 @@ export const CHANGELOG = [
   { date: "2022-05-27", description: "Added Post Malone - beerbongs & bentleys to A", items: [] },
   { date: "2022-05-25", description: "Rating criteria update + vinyl tracking", items: [
     "Added Dua Lipa - Future Nostalgia to A",
-    "Updated and simplified rating criteria",
-    "Indicated if I own the vinyl for an album",
     "Renamed Giveon - TAKE TIME",
   ]},
   { date: "2022-05-23", description: "Added Kacey Musgraves - Golden Hour to A", items: [] },
@@ -103,7 +101,6 @@ export const CHANGELOG = [
   { date: "2022-02-27", description: "Added Conway the Machine - God Don't Make Mistakes to A", items: [] },
   { date: "2022-01-09", description: "January update", items: [
     "Added Baby Keem - The Melodic Blue to B",
-    "Removed arrows which indicated a potential change in rating",
   ]},
   { date: "2022-01-04", description: "Added The Weeknd - Dawn FM to A", items: [] },
 
@@ -117,7 +114,9 @@ export const CHANGELOG = [
   { date: "2021-07-08", description: "Added Pop Smoke - Faith to C", items: [] },
   { date: "2021-07-05", description: "July update", items: [
     "Added Olivia Rodrigo - Sour to A",
-    "Split The Weeknd - Trilogy into their own projects. Moved House of Balloons to S, Thursday and Echoes of Silence to A.",
+    "Moved The Weeknd - House of Balloons to S",
+    "Moved The Weeknd - Echoes of Silence to A",
+    "Moved The Weeknd - Thursday to A",
     "Moved Viktor Vaughn - Vaudeville Villain from A to B",
   ]},
   { date: "2021-06-28", description: "Moved Future & Drake - What a Time to be Alive from B to A", items: [] },
@@ -133,7 +132,7 @@ export const CHANGELOG = [
     "Added Anderson .Paak - Malibu to A",
     "Added Anderson .Paak - Ventura to A",
   ]},
-  { date: "2021-01-06", description: "Moved YOASOBI from Others to A. Added YOASOBI - THE BOOK.", items: [] },
+  { date: "2021-01-06", description: "Added YOASOBI - THE BOOK to A", items: [] },
   { date: "2021-01-01", description: "Added Dr. Dre - 2001 to A", items: [] },
 
   // ── 2020 ──────────────────────────────────────────────────────────────────
@@ -143,7 +142,6 @@ export const CHANGELOG = [
   { date: "2020-12-09", description: "Added MYTH & ROID - eYe's to B", items: [] },
   { date: "2020-12-05", description: "Added Kid Cudi - Man on the Moon III: The Chosen to B", items: [] },
   { date: "2020-12-04", description: "Created Changelog", items: [
-    "Added YOASOBI to Others",
     "Moved Madvillain - Madvillainy to B",
   ]},
   { date: "2020-11-26", description: "Changed SZA - Ctrl from S to A", items: [] },
@@ -259,7 +257,6 @@ export const CHANGELOG = [
     "Added The Underachievers - Renaissance to A",
     "Added ScHoolboy Q - CrasH Talk to B",
   ]},
-  { date: "2019-04-19", description: "Created Others category for background music artists", items: [] },
   { date: "2019-03-13", description: "March additions", items: [
     "Added Aimer - Sun Dance to A",
     "Added Denzel Curry - Imperial to A",
@@ -328,7 +325,6 @@ export const CHANGELOG = [
   { date: "2018-02-18", description: "Changed Childish Gambino - Awaken, My Love! to A", items: [] },
   { date: "2018-02-13", description: "February update", items: [
     "Moved Kendrick Lamar - To Pimp a Butterfly to S",
-    "Added Vince Staples - Summertime '06 to Backlog",
   ]},
   { date: "2018-02-07", description: "Added Utada Hikaru - Exodus to B", items: [] },
   { date: "2018-01-28", description: "Added Rich Brian - Amen to B", items: [] },

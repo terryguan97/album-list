@@ -5,12 +5,14 @@ import { TIER_TABS, TIER_STEP } from "@/data/uiConstants";
 
 /**
  * Horizontal pitch-control style tier filter slider (desktop footer).
- * Clicking a label snaps the handle to that position with a FLIP animation.
+ * Clicking a label or dragging snaps the handle to that position.
  */
 export function TierSlider({ value, onChange }) {
-  const handleRef = useRef(null);
-  const idxRef    = useRef(TIER_TABS.indexOf(value));
-  const idx       = TIER_TABS.indexOf(value);
+  const handleRef  = useRef(null);
+  const trackRef   = useRef(null);
+  const idxRef     = useRef(TIER_TABS.indexOf(value));
+  const dragging   = useRef(false);
+  const idx        = TIER_TABS.indexOf(value);
 
   // FLIP: handle CSS position is already at new idx; animate translateX from old offset
   useEffect(() => {
@@ -25,10 +27,40 @@ export function TierSlider({ value, onChange }) {
     });
   }, [idx]);
 
+  function idxFromClientX(clientX) {
+    const rect = trackRef.current.getBoundingClientRect();
+    const raw  = Math.round((clientX - rect.left - 8) / TIER_STEP);
+    return Math.max(0, Math.min(TIER_TABS.length - 1, raw));
+  }
+
+  function onPointerDown(e) {
+    dragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const i = idxFromClientX(e.clientX);
+    if (i !== idx) onChange(TIER_TABS[i]);
+  }
+
+  function onPointerMove(e) {
+    if (!dragging.current) return;
+    const i = idxFromClientX(e.clientX);
+    if (i !== idx) onChange(TIER_TABS[i]);
+  }
+
+  function onPointerUp() {
+    dragging.current = false;
+  }
+
   const totalW = (TIER_TABS.length - 1) * TIER_STEP + 16;
 
   return (
-    <div className="relative flex-shrink-0" style={{ width: totalW, height: "100%" }}>
+    <div
+      ref={trackRef}
+      className="relative flex-shrink-0 cursor-pointer"
+      style={{ width: totalW, height: "100%" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
       {/* Ticks + labels */}
       {TIER_TABS.map((t, i) => (
         <button
@@ -73,7 +105,9 @@ export function TierSlider({ value, onChange }) {
  */
 export function TierSliderVertical({ value, onChange }) {
   const handleRef = useRef(null);
+  const trackRef  = useRef(null);
   const idxRef    = useRef(TIER_TABS.indexOf(value));
+  const dragging  = useRef(false);
   const idx       = TIER_TABS.indexOf(value);
 
   useEffect(() => {
@@ -88,10 +122,40 @@ export function TierSliderVertical({ value, onChange }) {
     });
   }, [idx]);
 
+  function idxFromClientY(clientY) {
+    const rect = trackRef.current.getBoundingClientRect();
+    const raw  = Math.round((clientY - rect.top - 8) / TIER_STEP);
+    return Math.max(0, Math.min(TIER_TABS.length - 1, raw));
+  }
+
+  function onPointerDown(e) {
+    dragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const i = idxFromClientY(e.clientY);
+    if (i !== idx) onChange(TIER_TABS[i]);
+  }
+
+  function onPointerMove(e) {
+    if (!dragging.current) return;
+    const i = idxFromClientY(e.clientY);
+    if (i !== idx) onChange(TIER_TABS[i]);
+  }
+
+  function onPointerUp() {
+    dragging.current = false;
+  }
+
   const totalH = (TIER_TABS.length - 1) * TIER_STEP + 16;
 
   return (
-    <div className="relative flex-shrink-0" style={{ height: totalH, width: 48 }}>
+    <div
+      ref={trackRef}
+      className="relative flex-shrink-0 cursor-pointer"
+      style={{ height: totalH, width: 48 }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
       {/* Ticks + labels */}
       {TIER_TABS.map((t, i) => (
         <button

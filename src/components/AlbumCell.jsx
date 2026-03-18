@@ -9,7 +9,7 @@ import VinylIcon from "@/components/ui/VinylIcon";
  * Desktop: vertical layout (index / title+artist / year+vinyl).
  * Mobile:  horizontal layout (index → title+artist → tier rating).
  */
-export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault, compact = false, coverArts = false, className: extraClass }) {
+export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault, compact = false, coverArts = false, vinylOnly = false, className: extraClass }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
   const [hovered, setHovered] = useState(false);
 
@@ -120,7 +120,7 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
             >
               {album.year}
             </span>
-            {album.vinyl && <VinylIcon className="transition-colors duration-250" style={{ color: hovered ? white : "#383838" }} />}
+            {album.vinyl && <VinylIcon className="transition-colors duration-250" style={{ color: (vinylOnly || hovered) ? white : "#383838" }} />}
           </div>
         </div>
       )}
