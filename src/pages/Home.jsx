@@ -167,7 +167,9 @@ function animateColumnReveal(gridEl, { spotlights = true } = {}) {
 // ─── Shared tilt handlers ─────────────────────────────────────────────────────
 function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
   const ref = useRef(null);
+  const isMobile = () => window.innerWidth < 768;
   function onMouseMove(e) {
+    if (isMobile()) return;
     const el = ref.current;
     if (!el) return;
     const { left, top, width, height } = el.getBoundingClientRect();
@@ -180,6 +182,7 @@ function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
     el.style.zIndex     = "10";
   }
   function onMouseLeave() {
+    if (isMobile()) return;
     const el = ref.current;
     if (!el) return;
     el.style.transition = "transform 500ms cubic-bezier(0.23,1,0.32,1), background-color 150ms";
@@ -190,7 +193,7 @@ function useTilt(rx = 14, ry = 18, sc = 1.09, perspective = 500) {
 }
 
 // ─── Album cell ───────────────────────────────────────────────────────────────
-function AlbumCell({ album, onExpand, matched, hasFilter, sort }) {
+function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
 
   const dimmed  = hasFilter && !matched;
@@ -219,7 +222,8 @@ function AlbumCell({ album, onExpand, matched, hasFilter, sort }) {
         boxShadow: glowing ? "inset 0 0 0 1px rgba(255,255,255,0.07), inset 0 0 24px rgba(255,255,255,0.03)" : "none",
       }}
     >
-      <div className="flex items-start justify-between">
+      {/* ── Desktop layout ── */}
+      <div className="hidden md:flex items-start justify-between">
         <div className="flex items-center gap-1.5">
           {byGenre ? (
             <span className="font-mono text-[10px] truncate max-w-[90px]" style={sortGlow()}>
@@ -230,7 +234,7 @@ function AlbumCell({ album, onExpand, matched, hasFilter, sort }) {
               {String(album.seq).padStart(2, "0")}
             </span>
           )}
-          {album.latest && (
+          {album.latest && !isDefault && (
             <span className="font-mono text-[7px] tracking-widest text-white border border-white/30 px-1 leading-tight">
               NEW
             </span>
@@ -240,7 +244,7 @@ function AlbumCell({ album, onExpand, matched, hasFilter, sort }) {
           {album.tier}
         </span>
       </div>
-      <div className="mt-2 flex-1">
+      <div className="hidden md:block mt-2 flex-1">
         <p
           className="text-[12.5px] font-medium leading-snug line-clamp-2 transition-colors duration-250 group-hover:text-white"
           style={byAlbum ? sortGlow() : { color: "#bfbfbf" }}
@@ -255,14 +259,35 @@ function AlbumCell({ album, onExpand, matched, hasFilter, sort }) {
           {album.artist}
         </p>
       </div>
-      <div className="flex items-end justify-between mt-2">
-        <span
-          className="font-mono text-[10px] transition-colors duration-250 group-hover:text-white"
-          style={byYear ? sortGlow() : { color: "#383838" }}
-        >
-          {album.year}
+      {!isDefault && (
+        <div className="hidden md:flex items-end justify-between mt-2">
+          <span
+            className="font-mono text-[10px] transition-colors duration-250 group-hover:text-white"
+            style={byYear ? sortGlow() : { color: "#383838" }}
+          >
+            {album.year}
+          </span>
+          {album.vinyl && <VinylIcon className="text-[#383838] transition-colors duration-250 group-hover:text-white" />}
+        </div>
+      )}
+
+      {/* ── Mobile layout ── */}
+      <div className="flex md:hidden items-center gap-3">
+        <span className="font-mono text-[10px] text-[#555] shrink-0 group-hover:text-white transition-colors duration-150">
+          {byGenre ? album.genre : String(album.seq).padStart(2, "0")}
         </span>
-        {album.vinyl && <VinylIcon className="text-[#383838] transition-colors duration-250 group-hover:text-white" />}
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-medium text-[#bfbfbf] truncate leading-snug group-hover:text-white transition-colors duration-150">
+            {album.crowned && <span className="mr-1 text-[#555]">♛</span>}
+            {album.title}
+          </p>
+          <p className="text-[11px] text-[#484848] truncate group-hover:text-white transition-colors duration-150">
+            {album.artist}
+          </p>
+        </div>
+        <span className="font-mono text-[10px] shrink-0" style={tierGlowStyle(album.tier)}>
+          {album.tier}
+        </span>
       </div>
     </div>
   );
@@ -393,6 +418,7 @@ function SpotlightCell({ item, videoRef }) {
   }, [hovered]);
 
   function onMouseMove(e) {
+    if (window.innerWidth < 768) return;
     const el      = cardRef.current;
     const content = contentRef.current;
     if (!el) return;
@@ -705,6 +731,167 @@ function TierSlider({ value, onChange }) {
   );
 }
 
+function MobileFilterDrawer({
+  newOnly, changeNew, vinylOnly, changeVinyl, grouped, changeGroup,
+  sort, handleSortChange, sortDir, handleDirChange,
+  genre, changeGenre, tier, resetAll, onClose, closing,
+}) {
+  const drawerRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!drawerRef.current) return;
+    animate(drawerRef.current, {
+      translateX: ["-100%", "0%"],
+      duration: 280,
+      ease: "outQuart",
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!closing || !drawerRef.current) return;
+    animate(drawerRef.current, {
+      translateX: ["0%", "-100%"],
+      duration: 260,
+      ease: "inQuart",
+    });
+  }, [closing]);
+
+  const isDirty = sort !== "Rating" || sortDir !== "asc" || genre !== "All" || tier !== "All" || vinylOnly || newOnly || grouped;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-30" onClick={onClose} />
+      {/* Drawer */}
+      <div
+        ref={drawerRef}
+        className="fixed top-0 left-0 bottom-12 z-40 w-64 bg-[#0e0e0e] border-r border-[#222] font-mono overflow-y-auto no-scrollbar flex flex-col"
+      >
+        <div className="p-5 flex flex-col gap-6 flex-1">
+          {/* Knobs */}
+          <div>
+            <p className="text-[9px] tracking-widest text-[#444] mb-4 uppercase">Toggles</p>
+            <div className="flex gap-5">
+              <KnobToggle active={grouped}   onClick={changeGroup} label="Group" />
+              <KnobToggle active={newOnly}   onClick={changeNew}   label="New" />
+              <KnobToggle active={vinylOnly} onClick={changeVinyl} label="Own Vinyl" />
+            </div>
+          </div>
+          {/* Sort */}
+          <div>
+            <p className="text-[9px] tracking-widest text-[#444] mb-2 uppercase">Sort</p>
+            <div className="flex flex-col">
+              {SORT_OPTIONS.map((o) => (
+                <div key={o.value} className="flex items-center">
+                  <button
+                    onClick={() => handleSortChange(o.value)}
+                    className="text-left text-[11px] px-2 py-1.5 transition-colors duration-150 flex-1"
+                    style={sort === o.value ? { ...sortGlow(SORT_HL), opacity: 1 } : { color: "#888" }}
+                  >
+                    {o.label}
+                  </button>
+                  {sort === o.value && (
+                    <button onClick={handleDirChange} className="ml-1 text-[9px] text-[#888] px-2 py-1.5">
+                      {sortDir === "desc" ? "▼" : "▲"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Genre */}
+          <div>
+            <p className="text-[9px] tracking-widest text-[#444] mb-2 uppercase">Genre</p>
+            <div className="flex flex-col">
+              {GENRE_OPTIONS.map((g) => (
+                <button
+                  key={g.value}
+                  onClick={() => changeGenre(g.value)}
+                  className="text-left text-[11px] px-2 py-1.5 transition-colors duration-150"
+                  style={{ color: genre === g.value ? "#e8e8e8" : "#888" }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Reset */}
+          {isDirty && (
+            <button
+              onClick={() => { resetAll(); onClose(); }}
+              className="text-[11px] text-[#888] hover:text-[#bbb] transition-colors text-left px-2"
+            >
+              Reset All
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TierSliderVertical({ value, onChange }) {
+  const handleRef = useRef(null);
+  const idxRef    = useRef(TIER_TABS.indexOf(value));
+  const idx       = TIER_TABS.indexOf(value);
+
+  useEffect(() => {
+    if (!handleRef.current) return;
+    const prev = idxRef.current;
+    idxRef.current = idx;
+    if (prev === idx) return;
+    animate(handleRef.current, {
+      translateY: [(prev - idx) * TIER_STEP, 0],
+      duration:   300,
+      ease:       "outQuart",
+    });
+  }, [idx]);
+
+  const totalH = (TIER_TABS.length - 1) * TIER_STEP + 16;
+
+  return (
+    <div className="relative flex-shrink-0" style={{ height: totalH, width: 48 }}>
+      {/* Ticks + labels */}
+      {TIER_TABS.map((t, i) => (
+        <button
+          key={t}
+          onClick={() => onChange(t)}
+          className="absolute flex items-center justify-end"
+          style={{ top: i * TIER_STEP + 8 - 6, left: 0, right: 0, height: 12, gap: 4, paddingRight: 15 }}
+        >
+          <span className={cn(
+            "font-mono text-[9px] leading-none transition-colors duration-150",
+            value === t ? "text-[#d8d8d8]" : "text-[#888] hover:text-[#bbb]"
+          )}>
+            {t}
+          </span>
+          <div style={{ height: 1, width: 5, background: value === t ? "#555" : "#242424" }} />
+        </button>
+      ))}
+
+      {/* Rail */}
+      <div
+        className="absolute bg-[#1e1e1e]"
+        style={{ top: 8, bottom: 8, right: 14, width: 1 }}
+      />
+
+      {/* Handle */}
+      <div
+        ref={handleRef}
+        className="absolute"
+        style={{
+          top:        idx * TIER_STEP + 8 - 5,
+          right:      10,
+          width:      9,
+          height:     10,
+          background: "#3a3a3a",
+          border:     "1px solid #585858",
+        }}
+      />
+    </div>
+  );
+}
+
 export default function Home() {
   const [genre,      setGenre]      = useState("All");
   const [tier,       setTier]       = useState("All");
@@ -712,12 +899,27 @@ export default function Home() {
   const [sortDir,    setSortDir]    = useState("asc");
   const [vinylOnly,  setVinylOnly]  = useState(false);
   const [newOnly,    setNewOnly]    = useState(false);
-  const [grouped,    setGrouped]    = useState(false);
+  const [grouped,    setGrouped]    = useState(() => window.innerWidth < 768);
+  const [listMode,    setListMode]    = useState(false);
+  const [listClosing, setListClosing] = useState(false);
+  const listRef = useRef(null);
   const [expandedId, setExpandedId] = useState(null);
   const [progress,   setProgress]   = useState(0);
 
+  const [mobileMenuOpen,     setMobileMenuOpen]     = useState(false);
+  const [mobileMenuClosing,  setMobileMenuClosing]  = useState(false);
+  const [mobileDrawerOpen,   setMobileDrawerOpen]   = useState(false);
+  const [mobileDrawerClosing,setMobileDrawerClosing]= useState(false);
+  const [mobileTierOpen,     setMobileTierOpen]     = useState(false);
+  const [mobileTierClosing,  setMobileTierClosing]  = useState(false);
+  const [mobileClosingId,    setMobileClosingId]    = useState(null);
+  const [showTopBtn,       setShowTopBtn]       = useState(false);
+  const [mobileHeaderUp,   setMobileHeaderUp]   = useState(true);
+
   const gridRef          = useRef(null);
   const mainRef          = useRef(null);
+  const mobileMainRef    = useRef(null);
+  const lastScrollY      = useRef(0);
   const lenisRef         = useRef(null);
   const animModeRef      = useRef(null);
   const prevPosRef       = useRef({});
@@ -725,6 +927,43 @@ export default function Home() {
   const isInitialMount   = useRef(true);
   const prevIsDefaultRef = useRef(true); // true = default state on first render
   const wasDragRef       = useRef(false);
+
+  // ── List mode open animation ──────────────────────────────────────────────
+  useEffect(() => {
+    if (listMode && !listClosing && listRef.current) {
+      animate(listRef.current, {
+        opacity: [0, 1], translateY: [-10, 0],
+        duration: 300, ease: "outQuart",
+      });
+    }
+  }, [listMode]);
+
+  // ── Mobile close helpers (animate then unmount) ───────────────────────────
+  function closeMobileMenu()   { setMobileMenuClosing(true);   setTimeout(() => { setMobileMenuOpen(false);   setMobileMenuClosing(false);   }, 180); }
+  function closeMobileDrawer() { setMobileDrawerClosing(true); setTimeout(() => { setMobileDrawerOpen(false); setMobileDrawerClosing(false); }, 260); }
+  function closeMobileTier()   { setMobileTierClosing(true);   setTimeout(() => { setMobileTierOpen(false);   setMobileTierClosing(false);   }, 180); }
+
+  // ── Mobile back-to-top scroll detection ───────────────────────────────────
+  useEffect(() => {
+    const el = mobileMainRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const y = el.scrollTop;
+      const goingUp = y < lastScrollY.current;
+      setShowTopBtn(goingUp && y > 80);
+      setMobileHeaderUp(goingUp || y < 10);
+      lastScrollY.current = y;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // ── Mobile: scroll to top on filter/sort change ───────────────────────────
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      mobileMainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [sort, sortDir, genre, tier, vinylOnly, newOnly, grouped]);
 
   // ── Dynamic row / viewport-col count ──────────────────────────────────────
   const [rowCount,     setRowCount]     = useState(6);
@@ -787,6 +1026,11 @@ export default function Home() {
   }
 
   function handleCollapse() {
+    if (window.innerWidth < 768) {
+      setMobileClosingId(expandedId);
+      setTimeout(() => { setMobileClosingId(null); setExpandedId(null); }, 200);
+      return;
+    }
     animModeRef.current = "expand";
     capturePositions();
     setExpandedId(null);
@@ -842,6 +1086,22 @@ export default function Home() {
     const next = !grouped;
     const wbd  = genre === "All" && tier === "All" && sort === "Rating" && sortDir === "asc" && !vinylOnly && !newOnly && !next;
     applyWithSpotlightTransition(wbd, () => setGrouped(next));
+  };
+  const changeList = () => {
+    if (listMode) {
+      setListClosing(true);
+      if (listRef.current) {
+        animate(listRef.current, {
+          opacity: [1, 0], translateY: [0, -10],
+          duration: 220, ease: "inQuart",
+          complete: () => { setListMode(false); setListClosing(false); },
+        });
+      } else {
+        setListMode(false); setListClosing(false);
+      }
+    } else {
+      setListMode(true);
+    }
   };
 
   // ── Lenis horizontal scroll ───────────────────────────────────────────────
@@ -1008,11 +1268,11 @@ export default function Home() {
   }, [items]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#0c0c0c] overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#0c0c0c] md:overflow-hidden">
 
       {/* ── Header ── */}
       <header
-        className="h-8 shrink-0 flex items-center justify-between bg-[#0c0c0c] border-b border-[#1a1a1a]"
+        className="h-8 shrink-0 hidden md:flex items-center justify-between bg-[#0c0c0c] border-b border-[#1a1a1a]"
         style={{ paddingLeft: "16px", paddingRight: "16px" }}
       >
         <div className="flex items-center gap-2 font-mono text-[11px]">
@@ -1026,10 +1286,80 @@ export default function Home() {
         </nav>
       </header>
 
+      {/* ── Mobile header ── */}
+      <header
+        className="md:hidden bg-[#0c0c0c] border-b border-[#1a1a1a]"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          transform: mobileHeaderUp ? "translateY(0)" : "translateY(-100%)",
+          transition: "transform 280ms cubic-bezier(0.23, 1, 0.32, 1)",
+        }}
+      >
+        <div className="h-12 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2 font-mono text-[11px]">
+            <span className="text-[#e8e8e8] font-bold tracking-widest">Terry's Album List</span>
+            <span className="text-[#444]">·</span>
+            <span className="text-[#888]">{hasFilter ? (matchedIds?.size ?? 0) : ALBUMS.length} albums</span>
+          </div>
+          <button
+            onClick={() => mobileMenuOpen ? closeMobileMenu() : setMobileMenuOpen(true)}
+            className="flex flex-col gap-[5px] p-2 text-[#888] hover:text-white transition-colors"
+            aria-label="Menu"
+          >
+            {mobileMenuOpen ? (
+              <span className="font-mono text-[13px] leading-none">✕</span>
+            ) : (
+              <>
+                <span className="block w-5 h-px bg-current" />
+                <span className="block w-5 h-px bg-current" />
+                <span className="block w-5 h-px bg-current" />
+              </>
+            )}
+          </button>
+        </div>
+        {mobileMenuOpen && (
+          <div className={`flex gap-2 px-4 pb-3 font-mono text-[9px] tracking-widest ${mobileMenuClosing ? "mobile-menu-out" : "mobile-menu-in"}`}>
+            <Link to="/about"     onClick={closeMobileMenu} className="text-[#888] hover:text-white border border-[#2a2a2a] hover:border-white px-1.5 py-0.5 transition-colors duration-150">ABOUT</Link>
+            <Link to="/changelog" onClick={closeMobileMenu} className="text-[#888] hover:text-white border border-[#2a2a2a] hover:border-white px-1.5 py-0.5 transition-colors duration-150">CHANGELOG</Link>
+          </div>
+        )}
+      </header>
+
+      {/* ── Desktop: list mode ── */}
+      {listMode && (
+        <main className="flex-1 overflow-y-auto hidden md:block no-scrollbar">
+          <div ref={listRef} className="max-w-[900px] mx-auto border-x border-[#1c1c1c]">
+          <div style={{ height: 200 }} className="border-b border-[#1c1c1c]">
+            <SpotlightCell item={SPOTLIGHTS[0]} />
+          </div>
+          {items.filter((i) => i.type !== "empty" && i.type !== "spotlight").map((item) => {
+            if (item.type === "divider") return (
+              <div key={item.id} className="border-b border-[#1c1c1c] px-4 py-2 flex items-center gap-3">
+                <span className="font-mono text-[10px]" style={tierGlowStyle(item.tier)}>{item.tier}</span>
+                <div className="flex-1 h-px bg-[#1c1c1c]" />
+              </div>
+            );
+            return (
+              <div key={item.id} className="border-b border-[#1c1c1c]">
+                {item.type === "expanded"
+                  ? <AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} />
+                  : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} />
+                }
+              </div>
+            );
+          })}
+          </div>
+        </main>
+      )}
+
       {/* ── Desktop: horizontal scroll grid ── */}
       <main
         ref={mainRef}
-        className="flex-1 overflow-x-scroll overflow-y-hidden hidden md:block no-scrollbar cursor-grab"
+        className={`flex-1 overflow-x-scroll overflow-y-hidden no-scrollbar cursor-grab ${listMode ? "hidden" : "hidden md:block"}`}
       >
         {sorted.length === 0 ? (
           <div className="flex items-center justify-center h-full font-mono text-[11px] text-[#333]">
@@ -1064,17 +1394,30 @@ export default function Home() {
         )}
       </main>
 
-      {/* ── Mobile: vertical scroll grid ── */}
-      <main className="flex-1 overflow-y-auto md:hidden">
-        <div
-          className="grid border-t border-l border-[#1c1c1c]"
-          style={{ gridTemplateColumns: "repeat(2, 1fr)", gridAutoRows: "130px" }}
-        >
-          {items.map((item) =>
-            item.type === "spotlight"
-              ? <SpotlightCell key={item.id} item={item} />
-              : <AlbumCell     key={item.id} album={item} />
-          )}
+      {/* ── Mobile: single-column scroll grid ── */}
+      <main ref={mobileMainRef} className="flex-1 overflow-y-auto md:hidden pb-12 pt-12 no-scrollbar">
+        {/* s1 spotlight always at top, full width */}
+        <div style={{ height: 200 }} className="border-b border-[#1c1c1c] shrink-0">
+          <SpotlightCell item={SPOTLIGHTS[0]} />
+        </div>
+        {/* Album cards: single column, full width */}
+        <div className="border-l border-[#1c1c1c]">
+          {items.filter(i => i.type !== "empty" && i.type !== "spotlight").map((item) => {
+            if (item.type === "divider") return (
+              <div key={item.id} className="border-b border-r border-[#1c1c1c] px-4 py-2 flex items-center gap-3">
+                <span className="font-mono text-[10px]" style={tierGlowStyle(item.tier)}>{item.tier}</span>
+                <div className="flex-1 h-px bg-[#1c1c1c]" />
+              </div>
+            );
+            return (
+              <div key={item.id} className="border-b border-r border-[#1c1c1c]">
+                {item.type === "expanded"
+                  ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} /></div>
+                  : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} />
+                }
+              </div>
+            );
+          })}
         </div>
       </main>
 
@@ -1085,14 +1428,15 @@ export default function Home() {
 
       {/* ── Bottom filter bar ── */}
       <footer
-        className="h-10 shrink-0 flex items-center justify-between bg-[#0c0c0c]"
+        className="h-10 shrink-0 hidden md:flex items-center justify-between bg-[#0c0c0c]"
         style={{ paddingLeft: "16px", paddingRight: "16px" }}
       >
-        {/* Left: vinyl + new + group toggles */}
+        {/* Left: vinyl + new + group + list toggles */}
         <div className="flex items-center gap-4">
+          <KnobToggle active={listMode}  onClick={changeList}  label="List" />
+          <KnobToggle active={grouped}   onClick={changeGroup} label="Group" />
           <KnobToggle active={newOnly}   onClick={changeNew}   label="New" />
           <KnobToggle active={vinylOnly} onClick={changeVinyl} label="Own Vinyl" />
-          <KnobToggle active={grouped}   onClick={changeGroup} label="Group" />
         </div>
 
         {/* Center: genre + sort dropdowns + reset */}
@@ -1127,6 +1471,71 @@ export default function Home() {
           <TierSlider value={tier} onChange={changeTier} />
         </div>
       </footer>
+
+      {/* ── Mobile bottom bar ── */}
+      <div className="md:hidden">
+        {/* Left drawer */}
+        {mobileDrawerOpen && (
+          <MobileFilterDrawer
+            newOnly={newOnly}   changeNew={changeNew}
+            vinylOnly={vinylOnly} changeVinyl={changeVinyl}
+            grouped={grouped}   changeGroup={changeGroup}
+            sort={sort}         handleSortChange={handleSortChange}
+            sortDir={sortDir}   handleDirChange={handleDirChange}
+            genre={genre}       changeGenre={changeGenre}
+            tier={tier}         resetAll={resetAll}
+            closing={mobileDrawerClosing}
+            onClose={closeMobileDrawer}
+          />
+        )}
+        {/* Tier panel (expands upward from bottom right) */}
+        {mobileTierOpen && (
+          <div className={`fixed bottom-12 right-0 z-[60] bg-[#0e0e0e] border border-[#222] border-b-0 p-2 ${mobileTierClosing ? "mobile-tier-out" : "mobile-tier-in"}`}>
+            <TierSliderVertical value={tier} onChange={(t) => { changeTier(t); closeMobileTier(); }} />
+          </div>
+        )}
+        {/* Back to top */}
+        {showTopBtn && (
+          <button
+            onClick={() => mobileMainRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-16 right-4 z-50 font-mono text-[9px] tracking-widest text-[#888] hover:text-white border border-[#2a2a2a] hover:border-white bg-[#0e0e0e] px-2.5 py-1.5 transition-colors duration-150"
+            style={{ animation: "mobile-card-open 180ms ease both" }}
+          >
+            ↑ TOP
+          </button>
+        )}
+
+        {/* Bottom bar */}
+        <div className="fixed bottom-0 inset-x-0 z-40 h-12 bg-[#0c0c0c] border-t border-[#1a1a1a] flex items-center justify-between px-4">
+          <button
+            onClick={() => { mobileDrawerOpen ? closeMobileDrawer() : setMobileDrawerOpen(true); if (mobileTierOpen) closeMobileTier(); }}
+            className="font-mono text-[10px] tracking-widest transition-colors duration-150 flex items-center gap-2"
+            style={{ color: mobileDrawerOpen ? "#e8e8e8" : "#888" }}
+          >
+            <svg width="13" height="12" viewBox="0 0 13 12" fill="currentColor">
+              {/* left slider line */}
+              <rect x="3" y="0" width="1" height="12" rx="0.5"/>
+              {/* left handle */}
+              <rect x="1" y="3" width="5" height="2" rx="1"/>
+              {/* right slider line */}
+              <rect x="9" y="0" width="1" height="12" rx="0.5"/>
+              {/* right handle */}
+              <rect x="7" y="7" width="5" height="2" rx="1"/>
+            </svg>
+            <span>Filters</span>
+          </button>
+          <button
+            onClick={() => { mobileTierOpen ? closeMobileTier() : setMobileTierOpen(true); if (mobileDrawerOpen) closeMobileDrawer(); }}
+            className="font-mono text-[10px] tracking-widest transition-colors duration-150 flex items-center gap-2"
+            style={{ color: mobileTierOpen ? "#e8e8e8" : "#888" }}
+          >
+            <span>Tier</span>
+            <span style={tier !== "All" ? tierGlowStyle(tier) : { color: "#e8e8e8" }}>
+              {tier}
+            </span>
+          </button>
+        </div>
+      </div>
 
     </div>
   );

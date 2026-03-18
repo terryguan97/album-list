@@ -45,3 +45,44 @@ button {
 .vinyl-flip-in {
   animation: vinyl-flip-in 480ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
+
+@keyframes mobile-card-open {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mobile-card-open {
+  animation: mobile-card-open 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes mobile-card-close {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+.mobile-card-close {
+  animation: mobile-card-close 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes mobile-menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mobile-menu-in  { animation: mobile-menu-in  180ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+@keyframes mobile-menu-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+.mobile-menu-out { animation: mobile-menu-out 160ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+@keyframes mobile-tier-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mobile-tier-in  { animation: mobile-tier-in  200ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+@keyframes mobile-tier-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(10px); }
+}
+.mobile-tier-out { animation: mobile-tier-out 180ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
