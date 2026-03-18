@@ -1,15 +1,16 @@
 /**
  * Targeted re-fetch for albums that the original script missed.
  * Uses adjusted search queries to improve match rate.
- * Run with:  node scripts/fetch-missing-covers.mjs
+ * Run with:  node --env-file=.env scripts/fetch-missing-covers.mjs
  */
 
 import { readFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
-const CLIENT_ID     = "e3af4a388b99400e905216d96cda4e67";
-const CLIENT_SECRET = "665040dbb5604a25a632a8f10893745f";
+const CLIENT_ID     = process.env.SPOTIFY_CLIENT_ID;
+const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
+if (!CLIENT_ID || !CLIENT_SECRET) { console.error("Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET in .env"); process.exit(1); }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
