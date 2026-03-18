@@ -440,11 +440,8 @@ export default function Home() {
 
       {/* ── Desktop: list mode ── */}
       {listMode && (
-        <main className="flex-1 overflow-y-auto hidden md:block no-scrollbar">
-          <div ref={listRef} className="max-w-[900px] mx-auto border-x border-[#1c1c1c]">
-            <div style={{ height: 200 }} className="border-b border-[#1c1c1c]">
-              <SpotlightCell item={SPOTLIGHTS[0]} />
-            </div>
+        <main className="flex-1 overflow-y-auto hidden md:block no-scrollbar bg-[#111111]">
+          <div ref={listRef} className="max-w-[900px] mx-auto">
             {items.filter((i) => i.type !== "empty" && i.type !== "spotlight").map((item) => {
               if (item.type === "divider") return (
                 <div key={item.id} className="border-b border-[#1c1c1c] px-4 py-2 flex items-center gap-3">
@@ -456,7 +453,7 @@ export default function Home() {
                 <div key={item.id} className="border-b border-[#1c1c1c]">
                   {item.type === "expanded"
                     ? <AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} />
-                    : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} />
+                    : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} compact className="border-r-0" />
                   }
                 </div>
               );

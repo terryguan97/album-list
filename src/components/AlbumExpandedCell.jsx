@@ -42,11 +42,14 @@ export function AlbumExpandedCell({ album, onCollapse, sort }) {
             NEW
           </span>
         )}
-        <p className="text-[22px] font-bold leading-tight tracking-tight"
-           style={byAlbum ? sortGlow() : { color: "white" }}>
-          {album.crowned && <span className="mr-2">♛</span>}
-          {album.title}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[22px] font-bold leading-tight tracking-tight"
+             style={byAlbum ? sortGlow() : { color: "white" }}>
+            {album.crowned && <span className="mr-2">♛</span>}
+            {album.title}
+          </p>
+          {album.vinyl && <VinylIcon className="text-white/40 shrink-0" />}
+        </div>
         <p className="text-[13px] mt-1.5" style={byArtist ? sortGlow() : { color: "rgba(255,255,255,0.6)" }}>
           {album.artist}
         </p>
@@ -57,12 +60,9 @@ export function AlbumExpandedCell({ album, onCollapse, sort }) {
       </div>
 
       <div className="relative z-10 flex items-center justify-between mt-4">
-        <div className="flex items-center gap-2">
-          {album.vinyl && <VinylIcon className="text-white/50" />}
-          <span className="font-mono text-[13px]" style={byYear ? sortGlow() : { color: "rgba(255,255,255,0.5)" }}>
-            {album.year}
-          </span>
-        </div>
+        <span className="font-mono text-[13px]" style={byYear ? sortGlow() : { color: "rgba(255,255,255,0.5)" }}>
+          {album.year}
+        </span>
         <span className="font-mono text-[11px] text-white/20 tracking-widest">CLICK TO CLOSE</span>
       </div>
     </div>
