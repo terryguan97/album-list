@@ -33,8 +33,7 @@ export default function Home() {
   const [grouped,   setGrouped]   = useState(() => window.innerWidth < 768);
 
   // ── View mode state ─────────────────────────────────────────────────────────
-  const [listMode,    setListMode]    = useState(false);
-  const [listClosing, setListClosing] = useState(false);
+  const [listMode, setListMode] = useState(false);
   const [expandedId,  setExpandedId]  = useState(null);
   const [progress,    setProgress]    = useState(0); // horizontal scroll progress 0–1
 
@@ -58,14 +57,15 @@ export default function Home() {
   const mainRef          = useRef(null);
   const mobileMainRef    = useRef(null);
   const listRef          = useRef(null);
+  const listFlipRef      = useRef(null); // grid positions captured before switching to list
+  const gridFlipRef      = useRef(null); // list positions captured before switching back to grid
   const lastScrollY      = useRef(0);
   const lenisRef         = useRef(null);
   const animModeRef      = useRef(null);   // "sort" | "expand" | "filter" | null
   const prevPosRef       = useRef({});     // FLIP position snapshot
   const videoRef         = useRef(null);
-  const isInitialMount   = useRef(true);
-  const prevIsDefaultRef = useRef(true);   // tracks if previous render was default state
-  const wasDragRef       = useRef(false);  // suppresses card click after drag
+  const isInitialMount = useRef(true);
+  const wasDragRef     = useRef(false);  // suppresses card click after drag
 
   // ── Grid dimension update ───────────────────────────────────────────────────
   useEffect(() => {
@@ -112,12 +112,50 @@ export default function Home() {
     ? tierSections.map(({ numCols }) => `4px ${"171px ".repeat(numCols).trim()}`).join(" ")
     : undefined;
 
-  // ── List mode open animation ────────────────────────────────────────────────
-  useEffect(() => {
-    if (listMode && !listClosing && listRef.current) {
-      animate(listRef.current, {
-        opacity: [0, 1], translateY: [-10, 0],
-        duration: 300, ease: "outQuart",
+  // ── List ↔ Grid FLIP layout animation ────────────────────────────────────────
+  useLayoutEffect(() => {
+    if (listMode) {
+      // Opening: fly cards from their grid positions into the list
+      if (!listFlipRef.current || !listRef.current) return;
+      const prev = listFlipRef.current;
+      listFlipRef.current = null;
+
+      const cells = [...listRef.current.querySelectorAll("[data-album-id]")];
+      cells.forEach((el, i) => {
+        const id  = Number(el.dataset.albumId);
+        const old = prev[id]; // undefined = was off-screen in grid
+        const cur = el.getBoundingClientRect();
+        animate(el, {
+          opacity:    [old ? 0.7 : 0, 1],
+          translateX: [old ? old.left - cur.left : 0, 0],
+          translateY: [old ? old.top  - cur.top  : 0, 0],
+          duration:   old ? 480 : 260,
+          ease:       "outQuart",
+          delay:      Math.min(i * 18, 200),
+        });
+      });
+    } else {
+      // Closing: fly grid cards back from their list positions
+      if (!gridFlipRef.current || !gridRef.current) return;
+      const prev = gridFlipRef.current;
+      gridFlipRef.current = null;
+
+      const cells = [...gridRef.current.querySelectorAll("[data-album-id]")];
+      cells.forEach((el, i) => {
+        const id  = Number(el.dataset.albumId);
+        const old = prev[id];
+        if (!old) return;
+        const cur = el.getBoundingClientRect();
+        // Only animate cards visible in the current grid viewport
+        if (cur.right < 0 || cur.left > window.innerWidth) return;
+        animate(el, {
+          opacity:    [0.7, 1],
+          translateX: [old.left - cur.left, 0],
+          translateY: [old.top  - cur.top,  0],
+          duration:   480,
+          ease:       "outQuart",
+          delay:      Math.min(i * 18, 200),
+        });
       });
     }
   }, [listMode]);
@@ -168,8 +206,8 @@ export default function Home() {
   }
 
   function handleCollapse() {
-    if (window.innerWidth < 768) {
-      // Mobile: animate card out before unmounting
+    if (window.innerWidth < 768 || listMode) {
+      // Mobile + list mode: CSS class animate out before unmounting
       setMobileClosingId(expandedId);
       setTimeout(() => { setMobileClosingId(null); setExpandedId(null); }, 200);
       return;
@@ -232,17 +270,23 @@ export default function Home() {
 
   const changeList = () => {
     if (listMode) {
-      setListClosing(true);
-      if (listRef.current) {
-        animate(listRef.current, {
-          opacity: [1, 0], translateY: [0, -10],
-          duration: 220, ease: "inQuart",
-          complete: () => { setListMode(false); setListClosing(false); },
-        });
-      } else {
-        setListMode(false); setListClosing(false);
-      }
+      // Capture list positions before unmounting — used for reverse FLIP
+      const positions = {};
+      listRef.current?.querySelectorAll("[data-album-id]").forEach((el) => {
+        positions[Number(el.dataset.albumId)] = el.getBoundingClientRect();
+      });
+      gridFlipRef.current = positions;
+      setListMode(false);
     } else {
+      // Capture only the grid cards currently visible in the viewport
+      const positions = {};
+      gridRef.current?.querySelectorAll("[data-album-id]").forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.right > 0 && rect.left < window.innerWidth) {
+          positions[Number(el.dataset.albumId)] = rect;
+        }
+      });
+      listFlipRef.current = positions;
       setListMode(true);
     }
   };
@@ -320,15 +364,9 @@ export default function Home() {
     animModeRef.current = null;
     if (!gridRef.current) return;
 
-    const prevIsDefault = prevIsDefaultRef.current;
-    prevIsDefaultRef.current = isDefault;
-
     if (isInitialMount.current) {
-      // First load: column reveal
+      // First load: column reveal entrance animation
       isInitialMount.current = false;
-      animateColumnReveal(gridRef.current);
-    } else if (!prevIsDefault && isDefault) {
-      // Returning to default: re-run column reveal (same as initial)
       animateColumnReveal(gridRef.current);
     } else if (mode === "sort" || mode === "expand") {
       // FLIP: animate each card from its previous position to its new one
@@ -452,7 +490,7 @@ export default function Home() {
               return (
                 <div key={item.id} className="border-b border-[#1c1c1c]">
                   {item.type === "expanded"
-                    ? <AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} />
+                    ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} /></div>
                     : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} compact className="border-r-0" />
                   }
                 </div>

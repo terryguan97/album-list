@@ -97,7 +97,7 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
           {byGenre ? album.genre : String(album.seq).padStart(2, "0")}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-[#bfbfbf] truncate leading-snug group-hover:text-white transition-colors duration-150">
+          <p className="text-[16px] font-medium text-[#bfbfbf] truncate leading-snug group-hover:text-white transition-colors duration-150">
             {album.crowned && <span className="mr-1 text-[#555]">♛</span>}
             {album.title}
           </p>
