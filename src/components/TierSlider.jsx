@@ -55,7 +55,7 @@ export function TierSlider({ value, onChange }) {
   return (
     <div
       ref={trackRef}
-      className="relative flex-shrink-0 cursor-pointer"
+      className="relative flex-shrink-0 cursor-pointer select-none"
       style={{ width: totalW, height: "100%" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -150,7 +150,7 @@ export function TierSliderVertical({ value, onChange }) {
   return (
     <div
       ref={trackRef}
-      className="relative flex-shrink-0 cursor-pointer"
+      className="relative flex-shrink-0 cursor-pointer select-none"
       style={{ height: totalH, width: 48 }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
