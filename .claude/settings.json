@@ -5,7 +5,8 @@
       "Bash(node -e \"const p = require\\(''./node_modules/animejs/package.json''\\); console.log\\(p.version, p.main, p.module, p.exports ? ''has exports'' : ''no exports''\\)\")",
       "Bash(npm run:*)",
       "Bash(node -e \":*)",
-      "Bash(node scripts/fetch-covers.mjs)"
+      "Bash(node scripts/fetch-covers.mjs)",
+      "Bash(node scripts/fetch-missing-covers.mjs)"
     ]
   }
 }

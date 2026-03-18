@@ -28,8 +28,9 @@ export default function Home() {
   const [tier,     setTier]     = useState("All");
   const [sort,     setSort]     = useState("Rating");
   const [sortDir,  setSortDir]  = useState("asc");
-  const [vinylOnly, setVinylOnly] = useState(false);
-  const [newOnly,   setNewOnly]   = useState(false);
+  const [vinylOnly,  setVinylOnly]  = useState(false);
+  const [newOnly,    setNewOnly]    = useState(false);
+  const [coverArts,  setCoverArts]  = useState(false);
   const [grouped,   setGrouped]   = useState(() => window.innerWidth < 768);
 
   // ── View mode state ─────────────────────────────────────────────────────────
@@ -491,7 +492,7 @@ export default function Home() {
                 <div key={item.id} className="border-b border-[#1c1c1c]">
                   {item.type === "expanded"
                     ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} /></div>
-                    : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} compact className="border-r-0" />
+                    : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} compact coverArts={coverArts} className="border-r-0" />
                   }
                 </div>
               );
@@ -528,10 +529,10 @@ export default function Home() {
                   : item.type === "divider"
                   ? <TierDividerCell   key={item.id} tier={item.tier} />
                   : item.type === "spotlight"
-                  ? <SpotlightCell     key={item.id} item={item} videoRef={item.id === "s2" ? videoRef : null} />
+                  ? (coverArts ? <EmptyCell key={item.id} /> : <SpotlightCell key={item.id} item={item} videoRef={item.id === "s2" ? videoRef : null} />)
                   : item.type === "expanded"
                   ? <AlbumExpandedCell key={item.id} album={item} onCollapse={handleCollapse} sort={sort} />
-                  : <AlbumCell        key={item.id} album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} />
+                  : <AlbumCell        key={item.id} album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} coverArts={coverArts} />
               )}
             </div>
           </div>
@@ -556,7 +557,7 @@ export default function Home() {
               <div key={item.id} className="border-b border-r border-[#1c1c1c]">
                 {item.type === "expanded"
                   ? <div className={mobileClosingId === item.id ? "mobile-card-close" : "mobile-card-open"}><AlbumExpandedCell album={item} onCollapse={handleCollapse} sort={sort} /></div>
-                  : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} />
+                  : <AlbumCell album={item} onExpand={handleExpand} hasFilter={hasFilter} matched={!matchedIds || matchedIds.has(item.id)} sort={sort} isDefault={isDefault} coverArts={coverArts} />
                 }
               </div>
             );
@@ -573,10 +574,11 @@ export default function Home() {
       <footer className="h-10 shrink-0 hidden md:flex items-center justify-between bg-[#0c0c0c] px-4">
         {/* Left: view + filter toggles */}
         <div className="flex items-center gap-4">
-          <KnobToggle active={listMode}  onClick={changeList}  label="List" />
-          <KnobToggle active={grouped}   onClick={changeGroup} label="Group" />
-          <KnobToggle active={newOnly}   onClick={changeNew}   label="New" />
-          <KnobToggle active={vinylOnly} onClick={changeVinyl} label="Own Vinyl" />
+          <KnobToggle active={listMode}  onClick={changeList}             label="List" />
+          <KnobToggle active={coverArts} onClick={() => setCoverArts(v => !v)} label="Cover Art" />
+          <KnobToggle active={grouped}   onClick={changeGroup}            label="Group" />
+          <KnobToggle active={newOnly}   onClick={changeNew}              label="New" />
+          <KnobToggle active={vinylOnly} onClick={changeVinyl}            label="Own Vinyl" />
         </div>
 
         {/* Center: genre + sort dropdowns + reset */}

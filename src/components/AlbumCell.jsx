@@ -9,7 +9,7 @@ import VinylIcon from "@/components/ui/VinylIcon";
  * Desktop: vertical layout (index / title+artist / year+vinyl).
  * Mobile:  horizontal layout (index → title+artist → tier rating).
  */
-export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault, compact = false, className: extraClass }) {
+export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault, compact = false, coverArts = false, className: extraClass }) {
   const { ref: cardRef, onMouseMove, onMouseLeave } = useTilt(14, 18, 1.09, 500);
   const [hovered, setHovered] = useState(false);
 
@@ -24,6 +24,10 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
 
   const white = "white";
   const t = "color 250ms ease";
+
+  // In coverArts mode text is hidden until hover; otherwise always visible
+  const textOpacity = coverArts ? (hovered ? 1 : 0) : 1;
+  const textTransition = "opacity 300ms ease";
 
   return (
     <div
@@ -48,15 +52,30 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
       {album.cover && (
         <div
           aria-hidden
-          className="absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500 opacity-0 group-hover:opacity-[0.25]"
-          style={{ backgroundImage: `url(${album.cover})` }}
+          className="absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500"
+          style={{
+            backgroundImage: `url(${album.cover})`,
+            opacity: coverArts ? 1 : (hovered ? 0.25 : 0),
+          }}
+        />
+      )}
+
+      {/* ── Dark overlay in coverArts mode (fades in on hover for readability) ── */}
+      {coverArts && (
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+          style={{ backgroundColor: "rgba(0,0,0,0.65)", opacity: hovered ? 1 : 0 }}
         />
       )}
 
       {/* ── Desktop grid layout (vertical) ── */}
       {!compact && (
-        <>
-          <div className="hidden md:flex items-start justify-between">
+        <div
+          className="hidden md:flex flex-col flex-1 justify-between relative z-10"
+          style={{ opacity: textOpacity, transition: textTransition }}
+        >
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-1.5">
               {byGenre ? (
                 <span className="font-mono text-[10px] truncate max-w-[90px]" style={sortGlow()}>
@@ -78,7 +97,7 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
             </span>
           </div>
 
-          <div className="hidden md:block mt-2 flex-1">
+          <div className="mt-2 flex-1">
             <p
               className="text-[12.5px] font-medium leading-snug line-clamp-2"
               style={byAlbum ? sortGlow() : { color: hovered ? white : "#bfbfbf", transition: t }}
@@ -94,7 +113,7 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
             </p>
           </div>
 
-          <div className="hidden md:flex items-end justify-between mt-2">
+          <div className="flex items-end justify-between mt-2">
             <span
               className="font-mono text-[10px]"
               style={byYear ? sortGlow() : { color: hovered ? white : "#383838", transition: t }}
@@ -103,11 +122,14 @@ export function AlbumCell({ album, onExpand, matched, hasFilter, sort, isDefault
             </span>
             {album.vinyl && <VinylIcon className="transition-colors duration-250" style={{ color: hovered ? white : "#383838" }} />}
           </div>
-        </>
+        </div>
       )}
 
       {/* ── Horizontal layout (mobile + desktop list view) ── */}
-      <div className={cn("items-center gap-3", compact ? "flex" : "flex md:hidden")}>
+      <div
+        className={cn("items-center gap-3 relative z-10", compact ? "flex" : "flex md:hidden")}
+        style={{ opacity: textOpacity, transition: textTransition }}
+      >
         <span className="font-mono text-[10px] shrink-0 transition-colors duration-150" style={{ color: hovered ? white : "#555", transition: t }}>
           {byGenre ? album.genre : String(album.seq).padStart(2, "0")}
         </span>

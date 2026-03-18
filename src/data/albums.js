@@ -230,7 +230,7 @@ const raw = [
   hp("Run The Jewels",                    "Run The Jewels",                            2013, "B"),
   hp("Run The Jewels 3",                  "Run The Jewels",                            2016, "B"),
   hp("MUDBOY",                            "Sheck Wes",                                 2018, "B"),
-  hp("Black Face LP",                     "ScHoolboy Q",                               2011, "B"),
+  hp("Blank Face LP",                     "ScHoolboy Q",                               2016, "B"),
   hp("Blue Lips",                         "ScHoolboy Q",                               2024, "B"),
   hp("CrasH Talk",                        "ScHoolboy Q",                               2019, "B"),
   jp("Today is a Beautiful Day",          "Supercell",                                 2011, "B"),
@@ -253,7 +253,6 @@ const raw = [
   hp("BUSINESS IS BUSINESS",              "Young Thug",                                2023, "B"),
   hp("Jeffery",                           "Young Thug",                                2016, "B"),
   hp("Slime Season 3",                    "Young Thug",                                2016, "B"),
-  hp("The Patient Discovery",             "Z. Koketsuji",                              2024, "B"),
 
   // ── C ─────────────────────────────────────────────────────────────────────
   pp("Dangerous Woman",                   "Ariana Grande",                             2016, "C"),
@@ -281,7 +280,7 @@ const raw = [
   hp("Twenty88",                          "Big Sean & Jhené Aiko",                     2016, "C"),
   hp("17",                                "XXXTENTACION",                              2017, "C"),
   hp("Stay Dangerous",                    "YG",                                        2018, "C"),
-  hp("On the Rvn",                        "Young Thug",                                2019, "C"),
+  hp("On the Run",                        "Young Thug",                                2018, "C"),
 
   // ── D ─────────────────────────────────────────────────────────────────────
   hp("The Big Day",                       "Chance the Rapper",                         2019, "D"),
