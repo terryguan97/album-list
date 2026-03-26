@@ -139,6 +139,7 @@ const raw = [
   hp("Flower Boy",                         "Tyler, the Creator",                       2017, "A"),
   hp("Still Brazy",                        "YG",                                       2016, "A"),
   jp("THE BOOK",                           "YOASOBI",                                  2021, "A", { vinyl: true }),
+  jp("Hisohiso Banashi (潜潜話)",          "ZUTOMAYO",                                 2019, "A"),
 
   // ── B ─────────────────────────────────────────────────────────────────────
   hp("Heads in the Clouds",               "88rising",                                  2018, "B"),

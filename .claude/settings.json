@@ -6,7 +6,10 @@
       "Bash(npm run:*)",
       "Bash(node -e \":*)",
       "Bash(node scripts/fetch-covers.mjs)",
-      "Bash(node scripts/fetch-missing-covers.mjs)"
+      "Bash(node scripts/fetch-missing-covers.mjs)",
+      "Bash(xargs wc:*)",
+      "Bash(node -e \"import\\(''./src/data/albums.js''\\).then\\(m => { const a = m.ALBUMS.find\\(x => x.artist === ''ZUTOMAYO''\\); console.log\\(a?.id, a?.title\\); }\\)\")",
+      "Bash(node --env-file=.env -e \":*)"
     ]
   }
 }
