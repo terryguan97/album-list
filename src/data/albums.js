@@ -85,6 +85,7 @@ const raw = [
   rb("Smithereens",                        "Joji",                                     2022, "A"),
   el("† (Cross)",                          "Justice",                                  2007, "A"),
   pp("Golden Hour",                        "Kacey Musgraves",                          2018, "A"),
+  hp("Graduation",                          "Kanye West",                               2007, "A"),
   hp("My Beautiful Dark Twisted Fantasy",  "Kanye West",                               2010, "A"),
   hp("The Life of Pablo",                  "Kanye West",                               2016, "A"),
   hp("Yeezus",                             "Kanye West",                               2013, "A"),

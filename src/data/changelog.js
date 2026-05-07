@@ -1,6 +1,7 @@
 // Add new entries to the top of this array as you update your list
 export const CHANGELOG = [
   // ── 2026 ──────────────────────────────────────────────────────────────────
+  { date: "2026-05-07", description: "Added Kanye West - Graduation to A", items: [] },
   { date: "2026-03-26", description: "Added ZUTOMAYO - Hisohiso Banashi (潜潜話) to A", items: [] },
   { date: "2026-02-16", description: "Added Don Toliver - Hardstone Psycho to A", items: [] },
   { date: "2026-02-13", description: "Added Don Toliver - Octane to A", items: [] },
