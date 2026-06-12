@@ -105,7 +105,7 @@ export default function Changelog() {
               </div>
               {/* Row content */}
               <div className="flex flex-col md:flex-row md:gap-3 pb-2">
-                <time className="font-mono text-[10px] text-[#555] shrink-0 md:w-24 pt-px mb-0.5 md:mb-0">{row.date}</time>
+                <time className="font-mono text-[10px] text-white shrink-0 md:w-24 pt-px mb-0.5 md:mb-0">{row.date}</time>
                 <span className="text-xs md:text-sm"><ColoredText text={row.text} /></span>
               </div>
             </div>

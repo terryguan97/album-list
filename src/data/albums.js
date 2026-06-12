@@ -204,6 +204,7 @@ const raw = [
   hp("Entergalactic",                     "Kid Cudi",                                  2022, "B"),
   hp("Man on the Moon: The End of Day",   "Kid Cudi",                                  2009, "B"),
   hp("Man on the Moon III: The Chosen",   "Kid Cudi",                                  2020, "B"),
+  hp("Welcome to O'Block",               "King Von",                                  2020, "B"),
   hp("Bobby Tarantino",                   "Logic",                                     2016, "B"),
   hp("Bobby Tarantino II",                "Logic",                                     2018, "B"),
   hp("Madvillainy",                       "Madvillain",                                2004, "B"),
