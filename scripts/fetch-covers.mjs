@@ -61,11 +61,11 @@ for (const album of ALBUMS) {
     match?.images?.[0]?.url;
 
   if (img) {
-    covers[album.id] = img;
-    console.log(`✓ [${album.id}] ${album.title} — ${album.artist}`);
+    covers[album.slug] = img;
+    console.log(`✓ ${album.slug}`);
   } else {
     missing.push(album);
-    console.log(`✗ NOT FOUND: [${album.id}] ${album.title} — ${album.artist}`);
+    console.log(`✗ NOT FOUND: ${album.slug}`);
   }
 
   // ~3 requests/second to stay well under rate limits

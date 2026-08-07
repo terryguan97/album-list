@@ -36,6 +36,7 @@ const raw = [
   hp("Malibu",                             "Anderson .Paak",                           2016, "A"),
   hp("Oxnard",                             "Anderson .Paak",                           2018, "A"),
   rb("Ventura",                            "Anderson .Paak",                           2019, "A"),
+  pp("petal",                              "Ariana Grande",                             2026, "A"),
   hp("Midnight Marauders",                 "A Tribe Called Quest",                     1993, "A"),
   hp("The Low End Theory",                 "A Tribe Called Quest",                     1991, "A"),
   lt("Un Verano Sin Ti",                   "Bad Bunny",                                2022, "A"),
@@ -291,8 +292,16 @@ const raw = [
   hp("Revival",                           "Eminem",                                    2017, "D"),
 ];
 
+export const slugify = (artist, title) =>
+  `${artist}-${title}`.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
+
 import covers from "./covers.json" with { type: "json" };
-export const ALBUMS = raw.map((a, i) => ({ id: i + 1, ...a, cover: covers[String(i + 1)] ?? null }));
+export const ALBUMS = raw.map((a, i) => ({
+  id: i + 1,
+  ...a,
+  slug: slugify(a.artist, a.title),
+  cover: covers[slugify(a.artist, a.title)] ?? null,
+}));
 
 export const GENRES = [...new Set(ALBUMS.map((a) => a.genre))].sort();
 export const TIERS  = ["S", "A", "B", "C", "D"];
